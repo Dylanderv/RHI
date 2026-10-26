@@ -11,6 +11,26 @@ To connect: open **Settings → GitHub API** and click **Sign in with GitHub**. 
 **DLSS / Streamline version display**
 - Fixed swapping to an older DLSS or Streamline version showing the newer version number in the UI immediately after the swap. The background scan running concurrently could capture the pre-swap version and overwrite the display on merge. The merge now re-reads versions from disk so the displayed version always reflects what's actually installed.
 - Fixed the version dropdown showing the wrong entry when an installed version string is a prefix of another (e.g. 310.9.1 was matching 310.9.16 because of a StartsWith check in the item lookup). Now uses exact matching.
+- Fixed RHI showing a crash report when a DLSS or Streamline version couldn't be changed — for example on Game Pass games after the game updated, when the game is running, or when Windows blocks access to the folder. RHI now explains what went wrong and puts the dropdown back to the version that's actually installed.
+- Fixed a failed DLSS swap sometimes leaving the game without its DLSS file. The original file is now put back if the new one can't be copied in.
+- Fixed Batch Deploy stopping partway when one game failed. It now carries on with the remaining games and lists any that failed, with the reason, in the summary.
+
+**OptiScaler F5 DLSSNR**
+- Fixed F5 updates failing on the first attempt with a "Could not find a part of the path" error.
+- Fixed F5 games showing the old version number after updating, and no longer showing an update badge for newer releases.
+- Fixed updating an F5 or DLSS NR install forgetting which OptiScaler variant the game uses.
+
+**RTX 40 MFG Unlock**
+- Fixed RTX 40 MFG updates showing the new version in RHI while games kept running the old file. Since v1.5 the mod ships as `MFGUnlocker.dll`, which RHI wasn't picking up, and updates weren't being copied into game folders at startup. RHI now downloads the current release once and updates every game with RTX 40 MFG installed automatically — no reinstall needed.
+- Games that miss an update (for example because the game was running) are now caught up the next time RHI starts.
+
+**MFG Ada Unlock and other addons**
+- Fixed addon updates (such as MFG Ada Unlock) not reaching a game if the game was running when the update downloaded. RHI showed the new version but the game kept the old file. Outdated copies are now refreshed every time RHI starts.
+- Fixed MFG Ada Unlock installed from the Extras section sometimes not receiving updates.
+- Fixed MFG Ada Unlock being put back into a game after it was removed, the next time it updated.
+
+**NR Cost Scaler / DLSS FG 20/30**
+- Fixed updates to NR Cost Scaler and DLSS FG for RTX 20/30 not being copied into game folders when found at startup.
 
 ### Manifest Updates
 
