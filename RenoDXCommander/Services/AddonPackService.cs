@@ -760,54 +760,7 @@ public class AddonPackService : IAddonPackService
                 // Auto-redeploy the updated file to all game folders that have it installed.
                 // Without this, the staged file is updated but game folders keep the old version
                 // until the user manually reinstalls (reported as "update shows as latest but wasn't").
-                try
-                {
-                    var safeName = SanitizeFileName(entry.PackageName);
-                    var staged64 = Path.Combine(StagingDir, safeName + ".addon64");
-                    var staged32 = Path.Combine(StagingDir, safeName + ".addon32");
-                    var deployments2 = LoadDeployments();
-                    int redeployed = 0;
-                    foreach (var (gamePath, trackedFiles) in deployments2)
-                    {
-                        foreach (var trackedFile in trackedFiles.ToList())
-                        {
-                            var ext = Path.GetExtension(trackedFile);
-                            string? staged = ext.Equals(".addon64", StringComparison.OrdinalIgnoreCase) ? staged64
-                                           : ext.Equals(".addon32", StringComparison.OrdinalIgnoreCase) ? staged32
-                                           : null;
-                            if (staged == null || !File.Exists(staged)) continue;
-
-                            // Only redeploy if the deployed filename matches this addon's known names
-                            var vData = LoadVersions();
-                            vData.TryGetValue(entry.PackageName, out var vInfo);
-                            var knownName64 = vInfo?.OriginalName64;
-                            var knownName32 = vInfo?.OriginalName32;
-                            var trackedNoExt = Path.GetFileNameWithoutExtension(trackedFile);
-                            bool matches = trackedNoExt.Equals(safeName, StringComparison.OrdinalIgnoreCase)
-                                        || (!string.IsNullOrEmpty(knownName64) && trackedNoExt.Equals(knownName64, StringComparison.OrdinalIgnoreCase))
-                                        || (!string.IsNullOrEmpty(knownName32) && trackedNoExt.Equals(knownName32, StringComparison.OrdinalIgnoreCase));
-                            if (!matches) continue;
-
-                            var dest = Path.Combine(gamePath, trackedFile);
-                            if (!Directory.Exists(gamePath)) continue;
-                            try
-                            {
-                                File.Copy(staged, dest, overwrite: true);
-                                redeployed++;
-                            }
-                            catch (Exception copyEx)
-                            {
-                                CrashReporter.Log($"[AddonPackService.CheckAndUpdateAllAsync] Auto-redeploy failed for '{trackedFile}' at '{gamePath}' — {copyEx.Message}");
-                            }
-                        }
-                    }
-                    if (redeployed > 0)
-                        CrashReporter.Log($"[AddonPackService.CheckAndUpdateAllAsync] Auto-redeployed '{entry.PackageName}' to {redeployed} game folder(s).");
-                }
-                catch (Exception redeployEx)
-                {
-                    CrashReporter.Log($"[AddonPackService.CheckAndUpdateAllAsync] Auto-redeploy pass failed for '{entry.PackageName}' — {redeployEx.Message}");
-                }
+                RedeployToTrackedGames(entry, onlyIfStale: false);
             }
             catch (Exception ex)
             {
@@ -816,7 +769,83 @@ public class AddonPackService : IAddonPackService
             }
         }
 
+        // Catch-up pass: the redeploy above only runs in the session that downloads an update.
+        // If a copy failed then (game running, file locked), the game kept the old addon forever
+        // while RHI showed the new version. Refresh any tracked copy that differs from staging.
+        foreach (var name in downloadedNames)
+        {
+            var entry = _packs.FirstOrDefault(e =>
+                SanitizeFileName(e.PackageName).Equals(name, StringComparison.OrdinalIgnoreCase));
+            if (entry != null) RedeployToTrackedGames(entry, onlyIfStale: true);
+        }
+
         CrashReporter.Log("[AddonPackService.CheckAndUpdateAllAsync] Update check complete.");
+    }
+
+    /// <summary>
+    /// Copies the staged addon over every tracked copy of it in game folders.
+    /// Copies that no longer exist are skipped (the user removed them; never reinstall).
+    /// With <paramref name="onlyIfStale"/>, copies already matching staging are left alone.
+    /// A file RHI copied keeps the staged file's size and modified time, so comparing
+    /// those two is enough to spot an outdated copy without reading either file.
+    /// </summary>
+    private int RedeployToTrackedGames(AddonEntry entry, bool onlyIfStale)
+    {
+        int redeployed = 0;
+        try
+        {
+            var safeName = SanitizeFileName(entry.PackageName);
+            var staged64 = Path.Combine(StagingDir, safeName + ".addon64");
+            var staged32 = Path.Combine(StagingDir, safeName + ".addon32");
+
+            // Deployed filenames that belong to this addon
+            LoadVersions().TryGetValue(entry.PackageName, out var vInfo);
+            var knownNames = new[] { safeName, vInfo?.OriginalName64, vInfo?.OriginalName32 }
+                .Where(n => !string.IsNullOrEmpty(n))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var (gamePath, trackedFiles) in LoadDeployments())
+            {
+                foreach (var trackedFile in trackedFiles)
+                {
+                    if (!knownNames.Contains(Path.GetFileNameWithoutExtension(trackedFile))) continue;
+
+                    var ext = Path.GetExtension(trackedFile);
+                    string? staged = ext.Equals(".addon64", StringComparison.OrdinalIgnoreCase) ? staged64
+                                   : ext.Equals(".addon32", StringComparison.OrdinalIgnoreCase) ? staged32
+                                   : null;
+                    if (staged == null || !File.Exists(staged)) continue;
+
+                    var dest = Path.Combine(gamePath, trackedFile);
+                    if (!File.Exists(dest)) continue;
+
+                    try
+                    {
+                        if (onlyIfStale)
+                        {
+                            var s = new FileInfo(staged);
+                            var d = new FileInfo(dest);
+                            if (s.Length == d.Length && s.LastWriteTimeUtc == d.LastWriteTimeUtc) continue;
+                        }
+                        File.Copy(staged, dest, overwrite: true);
+                        redeployed++;
+                        if (onlyIfStale)
+                            CrashReporter.Log($"[AddonPackService.RedeployToTrackedGames] Refreshed outdated '{trackedFile}' at '{gamePath}'");
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                    {
+                        CrashReporter.Log($"[AddonPackService.RedeployToTrackedGames] Could not update '{trackedFile}' at '{gamePath}' (will retry next launch) — {ex.Message}");
+                    }
+                }
+            }
+            if (redeployed > 0)
+                CrashReporter.Log($"[AddonPackService.RedeployToTrackedGames] {(onlyIfStale ? "Caught up" : "Auto-redeployed")} '{entry.PackageName}' in {redeployed} game folder(s).");
+        }
+        catch (Exception ex)
+        {
+            CrashReporter.Log($"[AddonPackService.RedeployToTrackedGames] Pass failed for '{entry.PackageName}' — {ex.Message}");
+        }
+        return redeployed;
     }
 
     /// <inheritdoc />
@@ -1503,6 +1532,27 @@ public class AddonPackService : IAddonPackService
         catch (Exception ex)
         {
             CrashReporter.Log($"[AddonPackService.TrackAddonDeployment] Failed — {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Removes a deployed addon filename from the tracker, so updates stop redeploying it there.
+    /// Counterpart to <see cref="TrackAddonDeployment"/> for components that remove addons directly.
+    /// </summary>
+    public static void UntrackAddonDeployment(string installPath, string addonFileName)
+    {
+        try
+        {
+            var deployments = LoadDeployments();
+            if (deployments.TryGetValue(installPath, out var tracked) && tracked.Remove(addonFileName))
+            {
+                SaveDeployments(deployments);
+                CrashReporter.Log($"[AddonPackService.UntrackAddonDeployment] Untracked '{addonFileName}' at '{installPath}'");
+            }
+        }
+        catch (Exception ex)
+        {
+            CrashReporter.Log($"[AddonPackService.UntrackAddonDeployment] Failed — {ex.Message}");
         }
     }
 

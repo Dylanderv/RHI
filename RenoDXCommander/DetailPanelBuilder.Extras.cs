@@ -592,6 +592,8 @@ public partial class DetailPanelBuilder
 
                 var dest = Path.Combine(installPath, DeployFileName);
                 File.Copy(stagedPath, dest, overwrite: true);
+                // Track it so addon updates are copied here too
+                AddonPackService.TrackAddonDeployment(installPath, DeployFileName);
                 CrashReporter.Log($"[BuildMfgAdaUnlockRow] Installed '{DeployFileName}' to '{installPath}'");
                 _window.DispatcherQueue?.TryEnqueue(() =>
                 {
@@ -669,6 +671,7 @@ public partial class DetailPanelBuilder
             {
                 var dest = Path.Combine(installPath, DeployFileName);
                 if (File.Exists(dest)) File.Delete(dest);
+                AddonPackService.UntrackAddonDeployment(installPath, DeployFileName);
                 CrashReporter.Log($"[BuildMfgAdaUnlockRow] Removed '{DeployFileName}' from '{installPath}'");
 
                 // Also remove from addon selections so SyncGameFolder doesn't redeploy it.
