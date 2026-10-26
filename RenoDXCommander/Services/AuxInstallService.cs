@@ -513,7 +513,7 @@ public partial class AuxInstallService : IAuxInstallService, IAuxFileService
         }
         finally
         {
-            if (File.Exists(tempExe)) try { File.Delete(tempExe); } catch { }
+            if (File.Exists(tempExe)) try { File.Delete(tempExe); } catch (Exception ex) { CrashReporter.Log($"[AuxInstallService.DownloadLegacyReShadeAsync] Failed to delete temp file '{tempExe}' — {ex.Message}"); }
         }
     }
 
@@ -575,14 +575,14 @@ public partial class AuxInstallService : IAuxInstallService, IAuxFileService
             if (new FileInfo(backup).Length == 0)
             {
                 // Sentinel — RHI placed this file; game had nothing → delete both
-                try { if (File.Exists(filePath)) File.Delete(filePath); } catch { }
+                try { if (File.Exists(filePath)) File.Delete(filePath); } catch (Exception ex) { CrashReporter.Log($"[AuxInstallService.SentinelRestore] Failed to delete '{Path.GetFileName(filePath)}' — {ex.Message}"); }
                 File.Delete(backup); // always clean up sentinel
                 CrashReporter.Log($"[SentinelRestore] Cleaned up sentinel-placed file: {Path.GetFileName(filePath)}");
             }
             else
             {
                 // Real backup — restore game's original
-                try { if (File.Exists(filePath)) File.Delete(filePath); } catch { }
+                try { if (File.Exists(filePath)) File.Delete(filePath); } catch (Exception ex) { CrashReporter.Log($"[AuxInstallService.SentinelRestore] Failed to delete '{Path.GetFileName(filePath)}' before restore — {ex.Message}"); }
                 File.Move(backup, filePath);
                 CrashReporter.Log($"[SentinelRestore] Restored original: {Path.GetFileName(filePath)}");
             }

@@ -316,7 +316,7 @@ public sealed partial class MainWindow : Window
                 "RHI", "rhi_shutdown_requested");
             if (File.Exists(signalPath))
             {
-                try { File.Delete(signalPath); } catch { }
+                try { File.Delete(signalPath); } catch (Exception) { /* Safe to ignore: timer tick; failing to delete the signal file is harmless because the app exits immediately after. */ }
                 _shutdownSignalTimer?.Stop();
                 _crashReporter.Log("[MainWindow] Shutdown signal received from installer — exiting");
                 RequestExit();
@@ -403,7 +403,7 @@ public sealed partial class MainWindow : Window
             DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
             {
                 try { _windowStateManager.TryRestoreWindowBounds(); }
-                catch { }
+                catch (Exception ex) { CrashReporter.Log($"[MainWindow.MainWindow_Activated] Deferred window bounds restore failed — {ex.Message}"); }
             });
         }
         catch (Exception ex) { _crashReporter.Log($"[MainWindow.MainWindow_Activated] Failed to restore window bounds — {ex.Message}"); }
@@ -550,7 +550,7 @@ public sealed partial class MainWindow : Window
                     _ = ViewModel.HandleNxmLinkAsync(link);
                 });
             }
-            catch (OperationCanceledException) when (IsShuttingDown) { }
+            catch (OperationCanceledException) when (IsShuttingDown) { /* Expected: the wait is cancelled because the app is shutting down. */ }
         });
     }
 

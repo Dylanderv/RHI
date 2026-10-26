@@ -62,7 +62,7 @@ public static class DevUnlockService
                     }
                 }
             }
-            catch { }
+            catch (Exception ex) { CrashReporter.Log($"[DevUnlockService.GitHubApiToken] Failed to read github_api.txt — {ex.Message}"); }
 
             // 2. Fallback: github_api= line in unlock.txt
             if (!IsUnlocked) return null;
@@ -78,7 +78,7 @@ public static class DevUnlockService
                     }
                 }
             }
-            catch { }
+            catch (Exception ex) { CrashReporter.Log($"[DevUnlockService.GitHubApiToken] Failed to read unlock.txt — {ex.Message}"); }
             return null;
         }
     }

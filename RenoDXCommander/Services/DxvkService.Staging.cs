@@ -147,7 +147,7 @@ public partial class DxvkService
         }
         catch (Exception ex)
         {
-            if (File.Exists(tempArchive)) try { File.Delete(tempArchive); } catch { }
+            if (File.Exists(tempArchive)) try { File.Delete(tempArchive); } catch (Exception ex2) { CrashReporter.Log($"[DxvkService.EnsureStagingNightlyAsync] Temp archive cleanup failed — {ex2.Message}"); }
             CrashReporter.Log($"[DxvkService.EnsureStagingNightlyAsync] Download exception — {ex.Message}");
             return;
         }
@@ -161,7 +161,7 @@ public partial class DxvkService
         }
         finally
         {
-            if (File.Exists(tempArchive)) try { File.Delete(tempArchive); } catch { }
+            if (File.Exists(tempArchive)) try { File.Delete(tempArchive); } catch (Exception ex) { CrashReporter.Log($"[DxvkService.EnsureStagingNightlyAsync] Temp archive cleanup failed — {ex.Message}"); }
         }
 
         // ── Write version tag ────────────────────────────────────────────
@@ -258,7 +258,7 @@ public partial class DxvkService
         }
         catch (Exception ex)
         {
-            if (File.Exists(tempArchive)) try { File.Delete(tempArchive); } catch { }
+            if (File.Exists(tempArchive)) try { File.Delete(tempArchive); } catch (Exception ex2) { CrashReporter.Log($"[DxvkService.EnsureStagingGitHubAsync] Temp archive cleanup failed — {ex2.Message}"); }
             CrashReporter.Log($"[DxvkService.EnsureStagingGitHubAsync] Download exception — {ex.Message}");
             return;
         }
@@ -275,7 +275,7 @@ public partial class DxvkService
         }
         finally
         {
-            if (File.Exists(tempArchive)) try { File.Delete(tempArchive); } catch { }
+            if (File.Exists(tempArchive)) try { File.Delete(tempArchive); } catch (Exception ex) { CrashReporter.Log($"[DxvkService.EnsureStagingGitHubAsync] Temp archive cleanup failed — {ex.Message}"); }
         }
 
         // ── Write version tag to version.txt ─────────────────────────────
@@ -375,7 +375,7 @@ public partial class DxvkService
         }
         catch (Exception ex)
         {
-            if (File.Exists(tempArchive)) try { File.Delete(tempArchive); } catch { }
+            if (File.Exists(tempArchive)) try { File.Delete(tempArchive); } catch (Exception ex2) { CrashReporter.Log($"[DxvkService.EnsureStagingLiliumAsync] Temp archive cleanup failed — {ex2.Message}"); }
             CrashReporter.Log($"[DxvkService.EnsureStagingLiliumAsync] Download exception — {ex.Message}");
             return;
         }
@@ -391,7 +391,7 @@ public partial class DxvkService
         }
         finally
         {
-            if (File.Exists(tempArchive)) try { File.Delete(tempArchive); } catch { }
+            if (File.Exists(tempArchive)) try { File.Delete(tempArchive); } catch (Exception ex) { CrashReporter.Log($"[DxvkService.EnsureStagingLiliumAsync] Temp archive cleanup failed — {ex.Message}"); }
         }
 
         // ── Write version tag ────────────────────────────────────────────
@@ -552,7 +552,7 @@ public partial class DxvkService
     private async Task<bool> ExtractZipToStagingAsync(string zipPath)
     {
         var tempExtractDir = Path.Combine(Path.GetTempPath(), "RHI_dxvk_extract");
-        try { if (Directory.Exists(tempExtractDir)) Directory.Delete(tempExtractDir, true); } catch { }
+        try { if (Directory.Exists(tempExtractDir)) Directory.Delete(tempExtractDir, true); } catch (Exception ex) { CrashReporter.Log($"[DxvkService.ExtractZipToStagingAsync] Failed to clear old temp extract dir — {ex.Message}"); }
 
         try
         {
@@ -597,7 +597,7 @@ public partial class DxvkService
     private async Task<bool> ExtractTarGzToStagingAsync(string tarGzPath)
     {
         var tempExtractDir = Path.Combine(Path.GetTempPath(), "RHI_dxvk_extract");
-        try { if (Directory.Exists(tempExtractDir)) Directory.Delete(tempExtractDir, true); } catch { }
+        try { if (Directory.Exists(tempExtractDir)) Directory.Delete(tempExtractDir, true); } catch (Exception ex) { CrashReporter.Log($"[DxvkService.ExtractTarGzToStagingAsync] Failed to clear old temp extract dir — {ex.Message}"); }
 
         try
         {
@@ -676,11 +676,11 @@ public partial class DxvkService
         // Clear existing staging contents before copying new files
         foreach (var existingFile in Directory.GetFiles(StagingDir))
         {
-            try { File.Delete(existingFile); } catch { }
+            try { File.Delete(existingFile); } catch (Exception ex) { CrashReporter.Log($"[DxvkService.CopyExtractedToStaging] Failed to delete old staging file — {ex.Message}"); }
         }
         foreach (var existingDir in Directory.GetDirectories(StagingDir))
         {
-            try { Directory.Delete(existingDir, recursive: true); } catch { }
+            try { Directory.Delete(existingDir, recursive: true); } catch (Exception ex) { CrashReporter.Log($"[DxvkService.CopyExtractedToStaging] Failed to delete old staging dir — {ex.Message}"); }
         }
 
         // Copy all files from the content root to staging,
@@ -805,7 +805,7 @@ public partial class DxvkService
                 return "7z.exe";
             }
         }
-        catch { }
+        catch (Exception) { /* 7z.exe not on PATH is the normal case; caller handles null */ }
 
         return null;
     }

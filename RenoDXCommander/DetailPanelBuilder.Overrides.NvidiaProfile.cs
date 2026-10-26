@@ -393,7 +393,7 @@ public partial class DetailPanelBuilder
                         {
                             dlssService.Restore(tc.DlssDetection.DlssnrPath);
                             // Clean up custom marker on restore
-                            try { File.Delete(tc.DlssDetection.DlssnrPath + ".rhi_custom"); } catch { }
+                            try { File.Delete(tc.DlssDetection.DlssnrPath + ".rhi_custom"); } catch (Exception ex) { CrashReporter.Log($"[DetailPanelBuilder.BuildNvidiaProfileBody] Failed to delete .rhi_custom marker — {ex.Message}"); }
                         }
                         else if (version == "Custom")
                             await dlssService.SwapDlssCustomAsync(tc.DlssDetection.DlssnrPath);
@@ -401,7 +401,7 @@ public partial class DetailPanelBuilder
                         {
                             await dlssService.SwapDlssnrAsync(tc.DlssDetection.DlssnrPath, version);
                             // Clean up custom marker when switching to a managed version
-                            try { File.Delete(tc.DlssDetection.DlssnrPath + ".rhi_custom"); } catch { }
+                            try { File.Delete(tc.DlssDetection.DlssnrPath + ".rhi_custom"); } catch (Exception ex) { CrashReporter.Log($"[DetailPanelBuilder.BuildNvidiaProfileBody] Failed to delete .rhi_custom marker — {ex.Message}"); }
                         }
                         tc.RefreshDlssVersions(dlssService);
                         // Sync the NR section's persisted version selection to match what was just swapped,
@@ -486,7 +486,7 @@ public partial class DetailPanelBuilder
                             {
                                 await dlssService.SwapDlssCustomAsync(tc.DlssDetection.DlssnrPath);
                                 // Write custom marker so version shows as "Custom"
-                                try { File.WriteAllText(tc.DlssDetection.DlssnrPath + ".rhi_custom", ""); } catch { }
+                                try { File.WriteAllText(tc.DlssDetection.DlssnrPath + ".rhi_custom", ""); } catch (Exception ex) { CrashReporter.Log($"[DetailPanelBuilder.BuildNvidiaProfileBody] Failed to write .rhi_custom marker — {ex.Message}"); }
                             }
                             else
                             {
@@ -500,7 +500,7 @@ public partial class DetailPanelBuilder
                                     return;
                                 }
                                 File.Copy(customSrc, destPath, overwrite: true);
-                                try { File.WriteAllText(destPath + ".rhi_custom", ""); } catch { }
+                                try { File.WriteAllText(destPath + ".rhi_custom", ""); } catch (Exception ex) { CrashReporter.Log($"[DetailPanelBuilder.BuildNvidiaProfileBody] Failed to write .rhi_custom marker — {ex.Message}"); }
                                 CrashReporter.Log($"[NrDeployBtn] Deployed custom nvngx_dlssnr.dll to '{tc.InstallPath}'");
                             }
                         }
@@ -517,7 +517,7 @@ public partial class DetailPanelBuilder
                             {
                                 await dlssService.SwapDlssnrAsync(destPath, versionToDeploy).ConfigureAwait(false);
                                 // Clean custom marker if present
-                                try { File.Delete(destPath + ".rhi_custom"); } catch { }
+                                try { File.Delete(destPath + ".rhi_custom"); } catch (Exception ex) { CrashReporter.Log($"[DetailPanelBuilder.BuildNvidiaProfileBody] Failed to delete .rhi_custom marker — {ex.Message}"); }
                                 cachedPath = destPath; // SwapDlssnrAsync already wrote to destPath
                             }
 
@@ -534,7 +534,7 @@ public partial class DetailPanelBuilder
                             {
                                 // Fresh install of newest
                                 File.Copy(cachedPath, destPath, overwrite: true);
-                                try { File.Delete(destPath + ".rhi_custom"); } catch { }
+                                try { File.Delete(destPath + ".rhi_custom"); } catch (Exception ex) { CrashReporter.Log($"[DetailPanelBuilder.BuildNvidiaProfileBody] Failed to delete .rhi_custom marker — {ex.Message}"); }
                                 CrashReporter.Log($"[NrDeployBtn] Deployed nvngx_dlssnr.dll (newest) to '{tc.InstallPath}'");
                             }
                         }

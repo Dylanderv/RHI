@@ -29,8 +29,21 @@ To connect: open **Settings → GitHub API** and click **Sign in with GitHub**. 
 - Fixed MFG Ada Unlock installed from the Extras section sometimes not receiving updates.
 - Fixed MFG Ada Unlock being put back into a game after it was removed, the next time it updated.
 
+**Update History**
+- Fixed Luma updates not appearing in Update History.
+- Fixed OptiScaler Stable, DLSS NR and F5 DLSSNR updates not appearing in Update History (only Nightly was shown).
+
 **NR Cost Scaler / DLSS FG 20/30**
 - Fixed updates to NR Cost Scaler and DLSS FG for RTX 20/30 not being copied into game folders when found at startup.
+
+**Security**
+- Fixed your GitHub sign-in token being sent along with downloads from non-GitHub sites (such as ReShade, Nexus Mods and PCGamingWiki). It is now only ever sent to GitHub.
+- Fixed a crafted Luma, shader pack or shader profile archive being able to place files outside the game or shader folder. Luma uninstall also no longer deletes anything outside the game folder.
+
+### Maintenance
+
+- Fixed many errors being silently ignored instead of written to the log, making problems easier to diagnose from your session logs.
+- Fixed some unexpected errors in buttons and settings showing a crash report instead of being logged and recovered from.
 
 ### Manifest Updates
 

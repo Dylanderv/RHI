@@ -951,7 +951,7 @@ public class Renodx5AddonService
                 _crashReporter.Log($"[Renodx5AddonService.LoadVersionsFromCache] Stale cache detected (feeder={_feederVersions.Count}, bridge={_bridgeVersions.Count}) — wiping for re-fetch");
                 _feederVersions.Clear();
                 _bridgeVersions.Clear();
-                try { File.Delete(AvailableVersionsFilePath); } catch { }
+                try { File.Delete(AvailableVersionsFilePath); } catch (Exception ex) { CrashReporter.Log($"[Renodx5AddonService.LoadVersionsFromCache] Failed to delete stale cache — {ex.Message}"); }
             }
         }
         catch (Exception ex)

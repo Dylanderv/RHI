@@ -213,7 +213,7 @@ public partial class DlssStreamlineService
         // (nvngx_dlssnr.dll specifically uses this; other DLLs are identified by their version being absent from manifest)
         if (targetFileName.Equals("nvngx_dlssnr.dll", StringComparison.OrdinalIgnoreCase))
         {
-            try { File.WriteAllText(dllPath + ".rhi_custom", ""); } catch { }
+            try { File.WriteAllText(dllPath + ".rhi_custom", ""); } catch (Exception ex) { CrashReporter.Log($"[DlssStreamlineService.SwapDlssCustomAsync] Failed to write custom marker for '{dllPath}' — {ex.Message}"); }
         }
 
         CrashReporter.Log($"[DlssStreamlineService.SwapDlssCustomAsync] Swapped '{dllPath}' with custom DLL");
@@ -269,7 +269,7 @@ public partial class DlssStreamlineService
         // Returns silently if no .original exists (not placed by RHI).
         AuxInstallService.SentinelRestore(dllPath);
         // Clean up any custom marker sidecar regardless
-        try { File.Delete(dllPath + ".rhi_custom"); } catch { }
+        try { File.Delete(dllPath + ".rhi_custom"); } catch (Exception ex) { CrashReporter.Log($"[DlssStreamlineService.Restore] Failed to delete custom marker for '{dllPath}' — {ex.Message}"); }
     }
 
     public void RestoreStreamline(string gameFolder)
@@ -487,7 +487,7 @@ public partial class DlssStreamlineService
             }
 
             // Clean up temp zip
-            try { File.Delete(tempZip); } catch { }
+            try { File.Delete(tempZip); } catch (Exception) { /* temp file in %TEMP%; a leftover is harmless */ }
         }
         catch (OperationCanceledException)
         {
@@ -541,7 +541,7 @@ public partial class DlssStreamlineService
             CrashReporter.Log($"[DlssStreamlineService.DownloadAndCacheStreamlineAsync] Cached {extracted} Streamline DLLs to '{cacheDir}'");
 
             // Clean up temp zip
-            try { File.Delete(tempZip); } catch { }
+            try { File.Delete(tempZip); } catch (Exception) { /* temp file in %TEMP%; a leftover is harmless */ }
         }
         catch (OperationCanceledException)
         {
@@ -564,12 +564,12 @@ public partial class DlssStreamlineService
     private static void WriteCustomStreamlineMarker(string gameFolder)
     {
         try { File.WriteAllText(Path.Combine(gameFolder, CustomStreamlineMarker), "Custom Streamline deployed by RHI"); }
-        catch { }
+        catch (Exception ex) { CrashReporter.Log($"[DlssStreamlineService.WriteCustomStreamlineMarker] Failed to write marker in '{gameFolder}' — {ex.Message}"); }
     }
 
     private static void RemoveCustomStreamlineMarker(string gameFolder)
     {
         try { var path = Path.Combine(gameFolder, CustomStreamlineMarker); if (File.Exists(path)) File.Delete(path); }
-        catch { }
+        catch (Exception ex) { CrashReporter.Log($"[DlssStreamlineService.RemoveCustomStreamlineMarker] Failed to remove marker in '{gameFolder}' — {ex.Message}"); }
     }
 }

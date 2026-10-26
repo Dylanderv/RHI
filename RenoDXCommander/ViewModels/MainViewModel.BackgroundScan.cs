@@ -1048,7 +1048,7 @@ public partial class MainViewModel
                 File.Copy(legacyVersionFile, targetVersionFile, overwrite: true);
 
             // Clean up legacy folder
-            try { Directory.Delete(legacyDir, recursive: true); } catch { }
+            try { Directory.Delete(legacyDir, recursive: true); } catch (Exception ex) { CrashReporter.Log($"[MainViewModel.MigrateDxvkStagingFolder] Failed to delete legacy folder — {ex.Message}"); }
 
             _crashReporter.Log($"[MigrateDxvkStagingFolder] Migrated legacy DXVK staging to {targetDir} (variant={targetVariant})");
         }

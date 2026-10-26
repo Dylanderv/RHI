@@ -702,7 +702,12 @@ public class LumaService : ILumaService
                                || entry.Name.EndsWith(".addon64", StringComparison.OrdinalIgnoreCase)
                                || entry.Name.EndsWith(".addon32", StringComparison.OrdinalIgnoreCase);
                 var baseDir = isAddonFile ? addonDeployPath : gameInstallPath;
-                var destPath = Path.Combine(baseDir, entry.FullName);
+                var destPath = FileHelper.SafeCombine(baseDir, entry.FullName);
+                if (destPath == null)
+                {
+                    CrashReporter.Log($"[LumaService.Install] Skipping archive entry outside the game folder: '{entry.FullName}'");
+                    continue;
+                }
 
                 Directory.CreateDirectory(Path.GetDirectoryName(destPath)!);
                 entry.ExtractToFile(destPath, overwrite: true);
@@ -823,9 +828,9 @@ public class LumaService : ILumaService
             {
                 // If RHI deployed this via dgVoodoo (sentinel exists), fall through to normal
                 // file handling so SentinelRestore can clean it up correctly.
-                var d3d9FullPath = Path.Combine(record.InstallPath, relPath);
+                var d3d9FullPath = FileHelper.SafeCombine(record.InstallPath, relPath);
                 var sentinelPath = d3d9FullPath + ".original";
-                if (!File.Exists(sentinelPath))
+                if (d3d9FullPath == null || !File.Exists(sentinelPath))
                 {
                     CrashReporter.Log($"[LumaService.Uninstall] Skipping RHI-managed ReShade DLL '{relPath}' (no sentinel)");
                     continue;
@@ -863,7 +868,13 @@ public class LumaService : ILumaService
                 continue;
             }
 
-            var fullPath = Path.Combine(record.InstallPath, relPath);
+            // Recorded paths are relative; never delete anything outside the game folder
+            var fullPath = FileHelper.SafeCombine(record.InstallPath, relPath);
+            if (fullPath == null)
+            {
+                CrashReporter.Log($"[LumaService.Uninstall] Skipping recorded path outside the game folder: '{relPath}'");
+                continue;
+            }
             try
             {
                 if (File.Exists(fullPath))
@@ -875,8 +886,8 @@ public class LumaService : ILumaService
                 else if (addonDeployPath != record.InstallPath)
                 {
                     // File not at game root — check addon deploy path
-                    var addonPath = Path.Combine(addonDeployPath, relPath);
-                    if (File.Exists(addonPath)) File.Delete(addonPath);
+                    var addonPath = FileHelper.SafeCombine(addonDeployPath, relPath);
+                    if (addonPath != null && File.Exists(addonPath)) File.Delete(addonPath);
                 }
             }
             catch (Exception ex)
@@ -1357,7 +1368,12 @@ public class LumaService : ILumaService
                                || entry.Name.EndsWith(".addon64", StringComparison.OrdinalIgnoreCase)
                                || entry.Name.EndsWith(".addon32", StringComparison.OrdinalIgnoreCase);
                 var baseDir = isAddonFile ? addonDeployPath : gameInstallPath;
-                var destPath = Path.Combine(baseDir, relativePath);
+                var destPath = FileHelper.SafeCombine(baseDir, relativePath);
+                if (destPath == null)
+                {
+                    CrashReporter.Log($"[LumaService.InstallFromArchive] Skipping archive entry outside the game folder: '{entry.FullName}'");
+                    continue;
+                }
 
                 Directory.CreateDirectory(Path.GetDirectoryName(destPath)!);
                 entry.ExtractToFile(destPath, overwrite: true);
@@ -1468,7 +1484,7 @@ public class LumaService : ILumaService
             }
             finally
             {
-                try { Directory.Delete(tempDir, recursive: true); } catch { }
+                try { Directory.Delete(tempDir, recursive: true); } catch (Exception ex) { CrashReporter.Log($"[LumaService.InstallFromArchiveAsync] Temp dir cleanup failed — {ex.Message}"); }
             }
         }
 

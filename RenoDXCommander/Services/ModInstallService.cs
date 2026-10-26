@@ -98,7 +98,7 @@ public class ModInstallService : IModInstallService
 
         // Capture the previously-installed version before overwriting — used for update log
         string? previousVersion = null;
-        try { previousVersion = AuxInstallService.ReadInstalledVersion(GetAddonDeployPath(gameInstallPath), fileName); } catch { }
+        try { previousVersion = AuxInstallService.ReadInstalledVersion(GetAddonDeployPath(gameInstallPath), fileName); } catch (Exception ex) { CrashReporter.Log($"[ModInstallService.InstallAsync] Could not read previous addon version — {ex.Message}"); }
 
         // ── Step 1: get remote Content-Length (single HEAD) ───────────────────────
         long? remoteSize = null;

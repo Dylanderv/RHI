@@ -274,8 +274,14 @@ public partial class ShaderPackService
                 if (rootDir == ShadersDir && ExcludedShaderFiles.Contains(fileName)) continue;
 
                 // Place each pack's files into a subdirectory named after the pack ID
-                var relPath = Path.Combine(pack.Id, relInRoot.Replace('/', Path.DirectorySeparatorChar));
-                var destPath = Path.Combine(rootDir, relPath);
+                // Entries must stay inside this pack's own subfolder
+                var packRoot = FileHelper.SafeCombine(rootDir, pack.Id);
+                var destPath = packRoot == null ? null : FileHelper.SafeCombine(packRoot, relInRoot);
+                if (destPath == null)
+                {
+                    CrashReporter.Log($"[ShaderPackService.Download] Skipping archive entry outside the pack folder: '{key}' (pack {pack.Id})");
+                    continue;
+                }
                 Directory.CreateDirectory(Path.GetDirectoryName(destPath)!);
 
                 using var entryStream = entry.OpenEntryStream();

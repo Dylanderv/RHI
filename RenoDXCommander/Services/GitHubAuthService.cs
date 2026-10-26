@@ -202,8 +202,9 @@ public sealed class GitHubAuthService
     /// </summary>
     public static void ApplyTokenToHttpClient(HttpClient http, string? token)
     {
+        // The token is attached per request to GitHub hosts only (GitHubTokenHandler).
+        // Clear any default header so it can't leak to other hosts.
         http.DefaultRequestHeaders.Remove("Authorization");
-        if (!string.IsNullOrEmpty(token))
-            http.DefaultRequestHeaders.TryAddWithoutValidation("Authorization", $"Bearer {token}");
+        GitHubTokenHandler.SetToken(token);
     }
 }

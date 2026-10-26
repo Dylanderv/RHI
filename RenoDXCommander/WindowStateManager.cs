@@ -237,7 +237,7 @@ public class WindowStateManager
                     }
                 }
             }
-            catch { }
+            catch (Exception ex) { CrashReporter.Log($"[WindowStateManager.LaunchDropHelper] Failed to read AddonWatchFolder from settings, using default — {ex.Message}"); }
             File.WriteAllText(hwndFile, $"{_hwnd.ToInt64()}\n{watchFolder}");
 
             // Launch via explorer.exe to de-elevate (Explorer runs at medium integrity)
@@ -557,7 +557,7 @@ public class WindowStateManager
                 }
             }
         }
-        catch { }
+        catch (Exception ex) { CrashReporter.Log($"[WindowStateManager.TryRestoreWindowBounds] Failed to restore window bounds — {ex.Message}"); }
     }
 
     /// <summary>Captures the current window rect into the in-memory cache.</summary>
@@ -571,7 +571,7 @@ public class WindowStateManager
             if (w < 100 || h < 100) return;
             _windowBounds = (r.Left, r.Top, w, h);
         }
-        catch { }
+        catch (Exception) { /* Safe to ignore: runs from the window procedure (WM_EXITSIZEMOVE) and shutdown; keeps the previous cached bounds. */ }
     }
 
     /// <summary>Restores the cached window bounds, if available.</summary>
@@ -584,7 +584,7 @@ public class WindowStateManager
                 NativeInterop.SetWindowPos(_hwnd, IntPtr.Zero, x, y, w, h, 0x0040 /* SWP_NOZORDER */);
             }
         }
-        catch { }
+        catch (Exception ex) { CrashReporter.Log($"[WindowStateManager.RestoreWindowBounds] Failed to restore cached window bounds — {ex.Message}"); }
     }
 
     /// <summary>
@@ -654,7 +654,7 @@ public class WindowStateManager
             var json = System.Text.Json.JsonSerializer.Serialize(data);
             System.IO.File.WriteAllText(_windowSettingsPath, json);
         }
-        catch { }
+        catch (Exception) { /* Safe to ignore: runs from the window procedure (WM_EXITSIZEMOVE) and during shutdown; bounds are saved again on the next move/resize. */ }
     }
 
     // ── OLE IDropTarget implementation ──────────────────────────────────────────

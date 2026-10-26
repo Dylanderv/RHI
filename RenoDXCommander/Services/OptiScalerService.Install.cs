@@ -860,7 +860,7 @@ public partial class OptiScalerService
                     if (Directory.Exists(gameSubDir) && !Directory.EnumerateFileSystemEntries(gameSubDir).Any())
                         Directory.Delete(gameSubDir, recursive: true);
                 }
-                catch { }
+                catch (Exception ex) { CrashReporter.Log($"[OptiScalerService.Uninstall] Failed to remove empty game subfolder — {ex.Message}"); }
             }
 
             var existingRecord = _auxInstaller.FindRecord(card.GameName, gameDir, AddonType);

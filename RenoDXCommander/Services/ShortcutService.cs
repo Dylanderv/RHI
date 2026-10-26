@@ -266,8 +266,8 @@ public static class ShortcutService
                 var bytes = await http.GetByteArrayAsync(url).ConfigureAwait(false);
                 if (bytes.Length > 100) { imageBytes = bytes; break; }
             }
-            catch (System.Net.Http.HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound) { }
-            catch { }
+            catch (System.Net.Http.HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound) { /* 404 is expected for missing CDN assets; try the next URL */ }
+            catch (Exception ex) { CrashReporter.Log($"[ShortcutService.TryDownloadSteamIconAsync] Steam CDN download failed — {ex.Message}"); }
         }
 
         // CDN miss — try Steam Store API for the hashed URL
@@ -295,7 +295,7 @@ public static class ShortcutService
                                 var bytes = await http.GetByteArrayAsync(imgUrl).ConfigureAwait(false);
                                 if (bytes.Length > 100) { imageBytes = bytes; break; }
                             }
-                            catch { }
+                            catch (Exception ex) { CrashReporter.Log($"[ShortcutService.TryDownloadSteamIconAsync] Steam Store API image download failed — {ex.Message}"); }
                         }
                     }
                 }

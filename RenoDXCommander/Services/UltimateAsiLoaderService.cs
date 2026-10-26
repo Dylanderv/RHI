@@ -261,7 +261,7 @@ public class UltimateAsiLoaderService
             // Undo hooked rename if the install itself failed
             if (hookedOriginal != null)
             {
-                try { File.Move(Path.Combine(card.InstallPath, hookedOriginal), destPath, overwrite: true); } catch { }
+                try { File.Move(Path.Combine(card.InstallPath, hookedOriginal), destPath, overwrite: true); } catch (Exception ex2) { CrashReporter.Log($"[UltimateAsiLoaderService.InstallAsync] Failed to undo hooked rename — {ex2.Message}"); }
                 hookedOriginal = null;
             }
             return (false, null);

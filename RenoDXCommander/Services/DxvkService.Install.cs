@@ -119,7 +119,7 @@ public partial class DxvkService
                 {
                     // Back up ReShade DLL so we can restore on uninstall
                     var backupPath = localReshade + ".reshade_backup";
-                    try { File.Copy(localReshade, backupPath, overwrite: true); } catch { }
+                    try { File.Copy(localReshade, backupPath, overwrite: true); } catch (Exception ex) { CrashReporter.Log($"[DxvkService.InstallAsync] Failed to back up ReShade d3d9.dll — {ex.Message}"); }
                     File.Delete(localReshade);
                     CrashReporter.Log("[DxvkService.InstallAsync] Direct DX9: removed local ReShade d3d9.dll (backed up)");
                 }
@@ -503,13 +503,13 @@ public partial class DxvkService
                 // Clean up backup file if d3d9.dll was restored
                 if (File.Exists(reshadeBackup) && File.Exists(d3d9Path))
                 {
-                    try { File.Delete(reshadeBackup); } catch { }
+                    try { File.Delete(reshadeBackup); } catch (Exception ex) { CrashReporter.Log($"[DxvkService.UninstallAsync] Failed to delete ReShade backup — {ex.Message}"); }
                 }
                 // Remove Vulkan footprint
                 VulkanFootprintService.Delete(gameDir);
                 // Delete the Vulkan reshade.ini and create a fresh standard DX one
                 var iniPath = Path.Combine(gameDir, "reshade.ini");
-                if (File.Exists(iniPath)) try { File.Delete(iniPath); } catch { }
+                if (File.Exists(iniPath)) try { File.Delete(iniPath); } catch (Exception ex) { CrashReporter.Log($"[DxvkService.UninstallAsync] Failed to delete Vulkan reshade.ini — {ex.Message}"); }
                 AuxInstallService.MergeRsIni(gameDir, gameName: card.GameName);
                 // Reset card to non-Vulkan — re-apply API from detection/override
                 card.VulkanRenderingPath = "DirectX";
@@ -545,7 +545,7 @@ public partial class DxvkService
                         var presetSvc = App.Services.GetRequiredService<DlssPresetService>();
                         presetSvc.ClearLiliumPresentMethod(card.GameName, card.InstallPath);
                     }
-                    catch { }
+                    catch (Exception ex) { CrashReporter.Log($"[DxvkService.UninstallAsync] Failed to clear Lilium present method — {ex.Message}"); }
                 }
                 card.NotifyAll();
                 CrashReporter.Log("[DxvkService.Uninstall] Direct DX9: switched back to local ReShade + standard reshade.ini");
@@ -557,7 +557,7 @@ public partial class DxvkService
                 var proxyDll = Path.Combine(gameDir, ProxyDxvkDllName);
                 if (File.Exists(proxyDll))
                 {
-                    try { File.Delete(proxyDll); } catch { }
+                    try { File.Delete(proxyDll); } catch (Exception ex) { CrashReporter.Log($"[DxvkService.UninstallAsync] Failed to delete legacy proxy DLL — {ex.Message}"); }
                 }
                 RemoveProxySectionFromReShadeIni(gameDir);
                 CrashReporter.Log($"[DxvkService.Uninstall] Legacy proxy mode: removed proxy DLL + [PROXY] section");

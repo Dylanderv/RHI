@@ -117,6 +117,8 @@ This app writes DLLs and ini files into users' game installs; mistakes break gam
 - Respect the foreign-DLL warning (DXVK, Special K, ENB) and `RsIniLockedGames` (any new "apply to all" reshade.ini loop must check `GetKeepRsIniUpdated`).
 - Never overwrite user-edited ini templates. Update All must not override a user's explicit per-game toggles.
 - After deploying DLSS/Streamline files, call `_dlssStreamlineService.RecordDlssFound(gameName)` so the skip cache doesn't hide them.
+- Any relative path that comes from an archive entry, a saved record or remote data (manifest, wiki) must go through `FileHelper.SafeCombine(baseDir, rel)` (returns null if it escapes `baseDir`), never plain `Path.Combine`. `ZipFile.ExtractToDirectory` is already safe.
+- Never put the GitHub token in `HttpClient.DefaultRequestHeaders` or add it per request: `GitHubTokenHandler` (wrapping the shared client) attaches it to GitHub hosts only. Set it via `GitHubAuthService.ApplyTokenToHttpClient`.
 
 ## Common pitfalls (more in `.claude/rules/` and `rhi-knowledge.md`)
 

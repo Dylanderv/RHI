@@ -210,10 +210,10 @@ public partial class MainViewModel
         if (System.IO.File.Exists(uncleanMarkerPath))
         {
             string markerContent = "";
-            try { markerContent = System.IO.File.ReadAllText(uncleanMarkerPath).Trim(); } catch { }
+            try { markerContent = System.IO.File.ReadAllText(uncleanMarkerPath).Trim(); } catch (Exception ex) { CrashReporter.Log($"[MainViewModel.InitializeCoreAsync] Failed to read unclean-restart marker — {ex.Message}"); }
             _crashReporter.Log($"[MainViewModel.InitializeAsync] UNCLEAN RESTART detected — previous session was killed by auto-restart at {markerContent}. Check restart_log.txt for pattern.");
             WasAutoRestarted = true;
-            try { System.IO.File.Delete(uncleanMarkerPath); } catch { }
+            try { System.IO.File.Delete(uncleanMarkerPath); } catch (Exception ex) { CrashReporter.Log($"[MainViewModel.InitializeCoreAsync] Failed to delete unclean-restart marker — {ex.Message}"); }
         }
 
         // Check for pending-dump marker — written by the dump task before MiniDumpWriteDump starts.
@@ -224,13 +224,13 @@ public partial class MainViewModel
         if (System.IO.File.Exists(pendingDumpMarker))
         {
             string dumpInfo = "";
-            try { dumpInfo = System.IO.File.ReadAllText(pendingDumpMarker).Trim(); } catch { }
+            try { dumpInfo = System.IO.File.ReadAllText(pendingDumpMarker).Trim(); } catch (Exception ex) { CrashReporter.Log($"[MainViewModel.InitializeCoreAsync] Failed to read pending-dump marker — {ex.Message}"); }
             // dumpInfo is either "path" (write started but log line may be lost) or "path|SizeMB" (write confirmed)
             var dumpPath = dumpInfo.Contains('|') ? dumpInfo.Split('|')[0] : dumpInfo;
             var dumpSize = dumpInfo.Contains('|') ? dumpInfo.Split('|')[1] : "size unknown";
             bool dumpExists = !string.IsNullOrEmpty(dumpPath) && System.IO.File.Exists(dumpPath);
             _crashReporter.Log($"[MainViewModel.InitializeAsync] Previous session freeze dump: '{System.IO.Path.GetFileName(dumpPath)}' ({dumpSize}) — {(dumpExists ? "EXISTS on disk" : "NOT FOUND on disk")}");
-            try { System.IO.File.Delete(pendingDumpMarker); } catch { }
+            try { System.IO.File.Delete(pendingDumpMarker); } catch (Exception ex) { CrashReporter.Log($"[MainViewModel.InitializeCoreAsync] Failed to delete pending-dump marker — {ex.Message}"); }
         }
 
         // Sync global peak nits setting for INI deploys
@@ -381,9 +381,9 @@ public partial class MainViewModel
                 var feederShadersDir   = Path.Combine(ShaderPackService.ShadersDir, "DLSS5Feeder");
                 if (File.Exists(feederPackCacheZip))
                 {
-                    try { File.Delete(feederPackCacheZip); } catch { }
+                    try { File.Delete(feederPackCacheZip); } catch (Exception ex) { CrashReporter.Log($"[MainViewModel.InitializeCoreAsync] Failed to delete stale DLSS5Feeder zip — {ex.Message}"); }
                     if (Directory.Exists(feederShadersDir))
-                        try { Directory.Delete(feederShadersDir, true); } catch { }
+                        try { Directory.Delete(feederShadersDir, true); } catch (Exception ex) { CrashReporter.Log($"[MainViewModel.InitializeCoreAsync] Failed to delete stale DLSS5Feeder shaders — {ex.Message}"); }
                     _crashReporter.Log("[MainViewModel.InitializeAsync] Wiped stale DLSS5Feeder shader pack cache — will be re-seeded from addon zip on next Feeder install");
                 }
 

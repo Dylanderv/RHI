@@ -42,7 +42,7 @@ public static class VulkanLayerService
                 @"SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System", writable: true);
             if (key != null) return true;
         }
-        catch { }
+        catch (Exception) { /* access denied when not elevated is the expected result */ }
 
         return false;
     }

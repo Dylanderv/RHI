@@ -96,7 +96,7 @@ public class DgVoodooService
         }
         catch (Exception ex)
         {
-            if (File.Exists(tempPath)) try { File.Delete(tempPath); } catch { }
+            if (File.Exists(tempPath)) try { File.Delete(tempPath); } catch (Exception) { /* best-effort temp cleanup; the download failure is logged and rethrown below */ }
             CrashReporter.Log($"[DgVoodooService.EnsureStagedAsync] Download failed — {ex.Message}");
             throw;
         }

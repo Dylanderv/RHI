@@ -98,9 +98,9 @@ public partial class DlssStreamlineService : IDlssStreamlineService
         MigrateCustomFolders();
 
         // Ensure custom folders exist so users can drop files in
-        try { Directory.CreateDirectory(DlssCustomDir); } catch { }
-        try { Directory.CreateDirectory(StreamlineCustomDir); } catch { }
-        try { Directory.CreateDirectory(RsCustomDir); } catch { }
+        try { Directory.CreateDirectory(DlssCustomDir); } catch (Exception ex) { CrashReporter.Log($"[DlssStreamlineService.ctor] Failed to create DLSS custom folder — {ex.Message}"); }
+        try { Directory.CreateDirectory(StreamlineCustomDir); } catch (Exception ex) { CrashReporter.Log($"[DlssStreamlineService.ctor] Failed to create Streamline custom folder — {ex.Message}"); }
+        try { Directory.CreateDirectory(RsCustomDir); } catch (Exception ex) { CrashReporter.Log($"[DlssStreamlineService.ctor] Failed to create ReShade custom folder — {ex.Message}"); }
     }
 
     /// <summary>Custom ReShade folder path — exposed for AuxInstallService.</summary>
@@ -134,7 +134,7 @@ public partial class DlssStreamlineService : IDlssStreamlineService
         if (files.Length == 0)
         {
             // Empty old folder — just delete it
-            try { Directory.Delete(oldPath, false); } catch { }
+            try { Directory.Delete(oldPath, false); } catch (Exception ex) { CrashReporter.Log($"[DlssStreamlineService.MigrateFolder] Failed to delete empty folder '{oldPath}' — {ex.Message}"); }
             return;
         }
 
@@ -154,7 +154,7 @@ public partial class DlssStreamlineService : IDlssStreamlineService
             if (Directory.GetFiles(oldPath).Length == 0 && Directory.GetDirectories(oldPath).Length == 0)
                 Directory.Delete(oldPath, false);
         }
-        catch { }
+        catch (Exception ex) { CrashReporter.Log($"[DlssStreamlineService.MigrateFolder] Failed to delete old folder '{oldPath}' — {ex.Message}"); }
     }
 
     // ── Manifest fetching ─────────────────────────────────────────────────────

@@ -50,10 +50,7 @@ public class GitHubETagCache
         request.Headers.UserAgent.Add(new ProductInfoHeaderValue("RHI", "1.0"));
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
 
-        // Add GitHub API token if available (raises rate limit from 60 to 5000 req/hour)
-        var token = DevUnlockService.GitHubApiToken;
-        if (!string.IsNullOrEmpty(token))
-            request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {token}");
+        // The GitHub token (if any) is attached by GitHubTokenHandler for GitHub hosts only.
 
         if (userAgent != null)
         {
@@ -83,7 +80,7 @@ public class GitHubETagCache
                 var remaining = response.Headers.TryGetValues("X-RateLimit-Remaining", out var vals)
                     ? vals.FirstOrDefault() : null;
                 bool actuallyRateLimited = remaining == "0";
-                var hasAuthHeader = request.Headers.Contains("Authorization");
+                var hasAuthHeader = GitHubTokenHandler.WillAuthorize(request.RequestUri);
 
                 if (actuallyRateLimited && !_rateLimited)
                 {

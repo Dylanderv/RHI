@@ -343,9 +343,9 @@ public partial class DlssStreamlineService
                 }
             }
         }
-        catch (UnauthorizedAccessException) { }
-        catch (DirectoryNotFoundException) { }
-        catch (IOException) { } // catches path-too-long errors
+        catch (UnauthorizedAccessException) { /* inaccessible folder; skip (runs for every game on every scan, too noisy to log) */ }
+        catch (DirectoryNotFoundException) { /* folder removed mid-scan; skip */ }
+        catch (IOException) { /* path too long etc.; skip */ } // catches path-too-long errors
 
         // Recurse into subdirectories, skipping any that are inaccessible
         try
@@ -355,8 +355,8 @@ public partial class DlssStreamlineService
                 SearchDirectory(subDir, result, depth + 1);
             }
         }
-        catch (UnauthorizedAccessException) { }
-        catch (DirectoryNotFoundException) { }
-        catch (IOException) { } // catches path-too-long and circular symlink errors
+        catch (UnauthorizedAccessException) { /* inaccessible subfolder; skip (runs for every game on every scan, too noisy to log) */ }
+        catch (DirectoryNotFoundException) { /* folder removed mid-scan; skip */ }
+        catch (IOException) { /* path too long / symlink loop; skip */ } // catches path-too-long and circular symlink errors
     }
 }

@@ -35,70 +35,98 @@ public class InstallEventHandler
 
     public async void CombinedInstallButton_Click(object sender, RoutedEventArgs e)
     {
-        if ((sender as FrameworkElement)?.Tag is not GameCardViewModel card) return;
-        if (string.IsNullOrEmpty(card.InstallPath) || !System.IO.Directory.Exists(card.InstallPath))
+        try
         {
-            var folder = await _pickFolderAsync(null);
-            if (folder == null) return;
-            card.InstallPath = folder;
-            ViewModel.SaveLibraryPublic();
+            if ((sender as FrameworkElement)?.Tag is not GameCardViewModel card) return;
+            if (string.IsNullOrEmpty(card.InstallPath) || !System.IO.Directory.Exists(card.InstallPath))
+            {
+                var folder = await _pickFolderAsync(null);
+                if (folder == null) return;
+                card.InstallPath = folder;
+                ViewModel.SaveLibraryPublic();
+            }
+            // Chain: RenoDX → RE Framework → ReShade (skip components that are N/A)
+            if (card.Mod?.SnapshotUrl != null)
+                await ViewModel.InstallModCommand.ExecuteAsync(card);
+            if (card.RefRowVisibility == Visibility.Visible)
+                await ViewModel.InstallREFrameworkCommand.ExecuteAsync(card);
+            if (card.ReShadeRowVisibility == Visibility.Visible)
+                await ViewModel.InstallReShadeCommand.ExecuteAsync(card);
         }
-        // Chain: RenoDX → RE Framework → ReShade (skip components that are N/A)
-        if (card.Mod?.SnapshotUrl != null)
-            await ViewModel.InstallModCommand.ExecuteAsync(card);
-        if (card.RefRowVisibility == Visibility.Visible)
-            await ViewModel.InstallREFrameworkCommand.ExecuteAsync(card);
-        if (card.ReShadeRowVisibility == Visibility.Visible)
-            await ViewModel.InstallReShadeCommand.ExecuteAsync(card);
+        catch (Exception unhandledEx)
+        {
+            CrashReporter.Log($"[InstallEventHandler.CombinedInstallButton_Click] Unhandled error — {unhandledEx.Message}\n{unhandledEx.StackTrace}");
+        }
     }
 
     public async void InstallButton_Click(object sender, RoutedEventArgs e)
     {
-        // If this is an external-only game, open the external URL instead
-        var checkCard = GetCardFromSender(sender);
-        if (checkCard?.IsExternalOnly == true)
+        try
         {
-            _window.ExternalLink_Click(sender, e);
-            return;
-        }
+            // If this is an external-only game, open the external URL instead
+            var checkCard = GetCardFromSender(sender);
+            if (checkCard?.IsExternalOnly == true)
+            {
+                _window.ExternalLink_Click(sender, e);
+                return;
+            }
 
-        // If RTX HDR is active, open the RTX HDR configuration dialog
-        if (checkCard?.IsRtxHdrEnabled == true)
+            // If RTX HDR is active, open the RTX HDR configuration dialog
+            if (checkCard?.IsRtxHdrEnabled == true)
+            {
+                _window.RtxHdrConfigButton_Click(sender, e);
+                return;
+            }
+
+            // If Auto HDR is active, open the Auto HDR configuration dialog
+            if (checkCard?.IsAutoHdrEnabled == true)
+            {
+                _window.AutoHdrConfigButton_Click(sender, e);
+                return;
+            }
+
+            if (sender is not Button btn || btn.Tag is not GameCardViewModel card) return;
+
+            // Warn when installing RenoDX alongside an already-installed Luma mod
+            if (card.IsLumaInstalled && !ViewModel.Settings.LumaRenodxCombinedWarningDismissed)
+            {
+                if (!await ShowLumaRenodxCombinedWarning(sender)) return;
+            }
+
+            await EnsurePathAndInstall(card, () => ViewModel.InstallModCommand.ExecuteAsync(card));
+        }
+        catch (Exception unhandledEx)
         {
-            _window.RtxHdrConfigButton_Click(sender, e);
-            return;
+            CrashReporter.Log($"[InstallEventHandler.InstallButton_Click] Unhandled error — {unhandledEx.Message}\n{unhandledEx.StackTrace}");
         }
-
-        // If Auto HDR is active, open the Auto HDR configuration dialog
-        if (checkCard?.IsAutoHdrEnabled == true)
-        {
-            _window.AutoHdrConfigButton_Click(sender, e);
-            return;
-        }
-
-        if (sender is not Button btn || btn.Tag is not GameCardViewModel card) return;
-
-        // Warn when installing RenoDX alongside an already-installed Luma mod
-        if (card.IsLumaInstalled && !ViewModel.Settings.LumaRenodxCombinedWarningDismissed)
-        {
-            if (!await ShowLumaRenodxCombinedWarning(sender)) return;
-        }
-
-        await EnsurePathAndInstall(card, () => ViewModel.InstallModCommand.ExecuteAsync(card));
     }
 
     public async void Install64Button_Click(object sender, RoutedEventArgs e)
     {
-        var card = GetCardFromSender(sender);
-        if (card == null) return;
-        await EnsurePathAndInstall(card, () => ViewModel.InstallModCommand.ExecuteAsync(card));
+        try
+        {
+            var card = GetCardFromSender(sender);
+            if (card == null) return;
+            await EnsurePathAndInstall(card, () => ViewModel.InstallModCommand.ExecuteAsync(card));
+        }
+        catch (Exception unhandledEx)
+        {
+            CrashReporter.Log($"[InstallEventHandler.Install64Button_Click] Unhandled error — {unhandledEx.Message}\n{unhandledEx.StackTrace}");
+        }
     }
 
     public async void Install32Button_Click(object sender, RoutedEventArgs e)
     {
-        var card = GetCardFromSender(sender);
-        if (card == null) return;
-        await EnsurePathAndInstall(card, () => ViewModel.InstallMod32Command.ExecuteAsync(card));
+        try
+        {
+            var card = GetCardFromSender(sender);
+            if (card == null) return;
+            await EnsurePathAndInstall(card, () => ViewModel.InstallMod32Command.ExecuteAsync(card));
+        }
+        catch (Exception unhandledEx)
+        {
+            CrashReporter.Log($"[InstallEventHandler.Install32Button_Click] Unhandled error — {unhandledEx.Message}\n{unhandledEx.StackTrace}");
+        }
     }
 
     public async Task EnsurePathAndInstall(GameCardViewModel card, Func<Task> installAction)
@@ -120,16 +148,23 @@ public class InstallEventHandler
 
     public async void InstallRsButton_Click(object sender, RoutedEventArgs e)
     {
-        var card = (sender as FrameworkElement)?.Tag as GameCardViewModel;
-        if (card == null) return;
-        if (string.IsNullOrEmpty(card.InstallPath) || !System.IO.Directory.Exists(card.InstallPath))
+        try
         {
-            var folder = await _pickFolderAsync(null);
-            if (folder == null) return;
-            card.InstallPath = folder;
-            ViewModel.SaveLibraryPublic();
+            var card = (sender as FrameworkElement)?.Tag as GameCardViewModel;
+            if (card == null) return;
+            if (string.IsNullOrEmpty(card.InstallPath) || !System.IO.Directory.Exists(card.InstallPath))
+            {
+                var folder = await _pickFolderAsync(null);
+                if (folder == null) return;
+                card.InstallPath = folder;
+                ViewModel.SaveLibraryPublic();
+            }
+            await ViewModel.InstallReShadeCommand.ExecuteAsync(card);
         }
-        await ViewModel.InstallReShadeCommand.ExecuteAsync(card);
+        catch (Exception unhandledEx)
+        {
+            CrashReporter.Log($"[InstallEventHandler.InstallRsButton_Click] Unhandled error — {unhandledEx.Message}\n{unhandledEx.StackTrace}");
+        }
     }
 
     public void UninstallRsButton_Click(object sender, RoutedEventArgs e)
@@ -145,16 +180,23 @@ public class InstallEventHandler
 
     public async void InstallUlButton_Click(object sender, RoutedEventArgs e)
     {
-        var card = (sender as FrameworkElement)?.Tag as GameCardViewModel;
-        if (card == null) return;
-        if (string.IsNullOrEmpty(card.InstallPath) || !System.IO.Directory.Exists(card.InstallPath))
+        try
         {
-            var folder = await _pickFolderAsync(null);
-            if (folder == null) return;
-            card.InstallPath = folder;
-            ViewModel.SaveLibraryPublic();
+            var card = (sender as FrameworkElement)?.Tag as GameCardViewModel;
+            if (card == null) return;
+            if (string.IsNullOrEmpty(card.InstallPath) || !System.IO.Directory.Exists(card.InstallPath))
+            {
+                var folder = await _pickFolderAsync(null);
+                if (folder == null) return;
+                card.InstallPath = folder;
+                ViewModel.SaveLibraryPublic();
+            }
+            await ViewModel.InstallUlAsync(card);
         }
-        await ViewModel.InstallUlAsync(card);
+        catch (Exception unhandledEx)
+        {
+            CrashReporter.Log($"[InstallEventHandler.InstallUlButton_Click] Unhandled error — {unhandledEx.Message}\n{unhandledEx.StackTrace}");
+        }
     }
 
     public void UninstallUlButton_Click(object sender, RoutedEventArgs e)
@@ -165,16 +207,23 @@ public class InstallEventHandler
 
     public async void InstallDcButton_Click(object sender, RoutedEventArgs e)
     {
-        var card = (sender as FrameworkElement)?.Tag as GameCardViewModel;
-        if (card == null) return;
-        if (string.IsNullOrEmpty(card.InstallPath) || !System.IO.Directory.Exists(card.InstallPath))
+        try
         {
-            var folder = await _pickFolderAsync(null);
-            if (folder == null) return;
-            card.InstallPath = folder;
-            ViewModel.SaveLibraryPublic();
+            var card = (sender as FrameworkElement)?.Tag as GameCardViewModel;
+            if (card == null) return;
+            if (string.IsNullOrEmpty(card.InstallPath) || !System.IO.Directory.Exists(card.InstallPath))
+            {
+                var folder = await _pickFolderAsync(null);
+                if (folder == null) return;
+                card.InstallPath = folder;
+                ViewModel.SaveLibraryPublic();
+            }
+            await ViewModel.InstallDcAsync(card);
         }
-        await ViewModel.InstallDcAsync(card);
+        catch (Exception unhandledEx)
+        {
+            CrashReporter.Log($"[InstallEventHandler.InstallDcButton_Click] Unhandled error — {unhandledEx.Message}\n{unhandledEx.StackTrace}");
+        }
     }
 
     public void UninstallDcButton_Click(object sender, RoutedEventArgs e)
@@ -185,155 +234,162 @@ public class InstallEventHandler
 
     public async void InstallOsButton_Click(object sender, RoutedEventArgs e)
     {
-        var card = (sender as FrameworkElement)?.Tag as GameCardViewModel;
-        if (card == null) return;
-        if (string.IsNullOrEmpty(card.InstallPath) || !System.IO.Directory.Exists(card.InstallPath))
-        {
-            var folder = await _pickFolderAsync(null);
-            if (folder == null) return;
-            card.InstallPath = folder;
-            ViewModel.SaveLibraryPublic();
-        }
-
-        // ── First-time OptiScaler warning ──────────────────────────────
-        if (!await ViewModel.CheckInstallWarningAsync(card.GameName, "optiscaler")) return;
-
-        if (!ViewModel.Settings.OsFirstTimeWarningDismissed)
-        {
-            var xamlRoot = (sender as FrameworkElement)?.XamlRoot;
-            if (xamlRoot != null)
-            {
-                var warningDialog = new ContentDialog
-                {
-                    Title = "⚠ OptiScaler Setup",
-                    Content = "Before installing OptiScaler, please configure your GPU type and DLSS input (AMD/Intel only) settings in the OptiScaler Settings section on the Settings page.\n\nThis ensures OptiScaler is configured correctly for your hardware.",
-                    PrimaryButtonText = "Continue",
-                    CloseButtonText = "Cancel",
-                    XamlRoot = xamlRoot,
-                    RequestedTheme = ElementTheme.Dark,
-                };
-
-                var result = await DialogService.ShowSafeAsync(warningDialog);
-                if (result != ContentDialogResult.Primary) return;
-
-                ViewModel.Settings.OsFirstTimeWarningDismissed = true;
-                ViewModel.SaveSettingsPublic();
-            }
-        }
-
-        // ── Read GPU/DLSS settings from persisted preferences ──────────
-        var gpuType = ViewModel.Settings.OsGpuType;
-        var useDlssInputs = ViewModel.Settings.OsDlssInputs;
-        var osVariant = ViewModel.GetOsVariant(card.GameName, card.Source ?? "");
-
-        card.OsIsInstalling = true;
-        card.OsActionMessage = "Installing OptiScaler...";
-        card.OsProgress = 0;
-        AuxInstalledRecord? osRecord = null;
         try
         {
-            osRecord = await _optiScalerService.InstallAsync(card,
-                new Progress<(string message, double percent)>(p =>
-                {
-                    card.OsActionMessage = p.message;
-                    card.OsProgress = p.percent;
-                }),
-                gpuType,
-                useDlssInputs,
-                ViewModel.Settings.OsHotkey,
-                osVariant,
-                nightlyBuildHint: osVariant == "Nightly" ? (ViewModel.GetOsNightlyBuild(card.GameName, card.Source ?? "") is { Length: > 0 } b ? b : null) : null);
-
-            if (osRecord == null)
+            var card = (sender as FrameworkElement)?.Tag as GameCardViewModel;
+            if (card == null) return;
+            if (string.IsNullOrEmpty(card.InstallPath) || !System.IO.Directory.Exists(card.InstallPath))
             {
-                // Install failed (e.g. staging unavailable due to GitHub rate limit).
-                // OsActionMessage already set by InstallAsync progress report.
-                card.OsIsInstalling = false;
-                card.NotifyAll();
-                return;
+                var folder = await _pickFolderAsync(null);
+                if (folder == null) return;
+                card.InstallPath = folder;
+                ViewModel.SaveLibraryPublic();
             }
 
-            // ── PD-Upscaler REFramework swap for compatible RE Engine games ──
-            if (ViewModel.Manifest?.PdUpscalerGames != null
-                && ViewModel.Manifest.PdUpscalerGames.TryGetValue(card.GameName, out var pdArtifact)
-                && File.Exists(Path.Combine(card.InstallPath, "dinput8.dll")))
+            // ── First-time OptiScaler warning ──────────────────────────────
+            if (!await ViewModel.CheckInstallWarningAsync(card.GameName, "optiscaler")) return;
+
+            if (!ViewModel.Settings.OsFirstTimeWarningDismissed)
             {
-                try
+                var xamlRoot = (sender as FrameworkElement)?.XamlRoot;
+                if (xamlRoot != null)
                 {
-                    card.OsActionMessage = "Installing PD-Upscaler REFramework...";
-                    await _reFrameworkService.InstallPdUpscalerAsync(
-                        card.GameName, card.InstallPath, pdArtifact,
-                        new Progress<(string message, double percent)>(p =>
-                        {
-                            card.OsActionMessage = p.message;
-                            card.OsProgress = p.percent;
-                        }));
-                    card.RefInstalledVersion = "PD-Upscaler";
+                    var warningDialog = new ContentDialog
+                    {
+                        Title = "⚠ OptiScaler Setup",
+                        Content = "Before installing OptiScaler, please configure your GPU type and DLSS input (AMD/Intel only) settings in the OptiScaler Settings section on the Settings page.\n\nThis ensures OptiScaler is configured correctly for your hardware.",
+                        PrimaryButtonText = "Continue",
+                        CloseButtonText = "Cancel",
+                        XamlRoot = xamlRoot,
+                        RequestedTheme = ElementTheme.Dark,
+                    };
+
+                    var result = await DialogService.ShowSafeAsync(warningDialog);
+                    if (result != ContentDialogResult.Primary) return;
+
+                    ViewModel.Settings.OsFirstTimeWarningDismissed = true;
+                    ViewModel.SaveSettingsPublic();
+                }
+            }
+
+            // ── Read GPU/DLSS settings from persisted preferences ──────────
+            var gpuType = ViewModel.Settings.OsGpuType;
+            var useDlssInputs = ViewModel.Settings.OsDlssInputs;
+            var osVariant = ViewModel.GetOsVariant(card.GameName, card.Source ?? "");
+
+            card.OsIsInstalling = true;
+            card.OsActionMessage = "Installing OptiScaler...";
+            card.OsProgress = 0;
+            AuxInstalledRecord? osRecord = null;
+            try
+            {
+                osRecord = await _optiScalerService.InstallAsync(card,
+                    new Progress<(string message, double percent)>(p =>
+                    {
+                        card.OsActionMessage = p.message;
+                        card.OsProgress = p.percent;
+                    }),
+                    gpuType,
+                    useDlssInputs,
+                    ViewModel.Settings.OsHotkey,
+                    osVariant,
+                    nightlyBuildHint: osVariant == "Nightly" ? (ViewModel.GetOsNightlyBuild(card.GameName, card.Source ?? "") is { Length: > 0 } b ? b : null) : null);
+
+                if (osRecord == null)
+                {
+                    // Install failed (e.g. staging unavailable due to GitHub rate limit).
+                    // OsActionMessage already set by InstallAsync progress report.
+                    card.OsIsInstalling = false;
                     card.NotifyAll();
+                    return;
                 }
-                catch (Exception pdEx)
-                {
-                    // PD-Upscaler failure is non-fatal — OptiScaler is already installed
-                    CrashReporter.Log($"[InstallEventHandler] PD-Upscaler install failed (non-fatal): {pdEx.Message}");
-                }
-            }
 
-            card.OsActionMessage = "✅ OptiScaler installed!";
-            card.OsStatus = GameStatus.Installed;
-            card.NotifyAll();
-            card.FadeMessage(m => card.OsActionMessage = m, card.OsActionMessage);
-
-            // Clear the DLSS skip cache for this game — OptiScaler just deployed nvngx_dlss.dll
-            // and/or Streamline, so the next Refresh must scan it rather than skipping it.
-            _dlssStreamlineService.RecordDlssFound(card.GameName);
-
-            // ── Post-install: Deploy Streamline and DLSS Enabler if pre-enabled ──
-            if ((osVariant == "Nightly" || osVariant == "DlssNr") && !string.IsNullOrEmpty(card.InstallPath))
-            {
-                if (ViewModel.GetOsDeployStreamline(card.GameName, card.Source ?? ""))
+                // ── PD-Upscaler REFramework swap for compatible RE Engine games ──
+                if (ViewModel.Manifest?.PdUpscalerGames != null
+                    && ViewModel.Manifest.PdUpscalerGames.TryGetValue(card.GameName, out var pdArtifact)
+                    && File.Exists(Path.Combine(card.InstallPath, "dinput8.dll")))
                 {
                     try
                     {
-                        // Deploy directly to the correct version — no swap needed, no .original backups
-                        var selectedSlVersion = ViewModel.GetOsStreamlineVersion(card.GameName, card.Source ?? "");
-                        _optiScalerService.DeployStreamlineToGame(card.InstallPath, selectedSlVersion);
+                        card.OsActionMessage = "Installing PD-Upscaler REFramework...";
+                        await _reFrameworkService.InstallPdUpscalerAsync(
+                            card.GameName, card.InstallPath, pdArtifact,
+                            new Progress<(string message, double percent)>(p =>
+                            {
+                                card.OsActionMessage = p.message;
+                                card.OsProgress = p.percent;
+                            }));
+                        card.RefInstalledVersion = "PD-Upscaler";
+                        card.NotifyAll();
                     }
-                    catch (Exception ex) { CrashReporter.Log($"[InstallEventHandler] Streamline post-install deploy failed — {ex.Message}"); }
-                }
-                if (ViewModel.GetOsDeployDlssEnabler(card.GameName, card.Source ?? ""))
-                {
-                    try
+                    catch (Exception pdEx)
                     {
-                        var dlssEnablerService = App.Services.GetRequiredService<DlssEnablerService>();
-                        var optiScalerDir = Path.Combine(card.InstallPath, "OptiScaler");
-                        _ = dlssEnablerService.InstallAsync(optiScalerDir);
+                        // PD-Upscaler failure is non-fatal — OptiScaler is already installed
+                        CrashReporter.Log($"[InstallEventHandler] PD-Upscaler install failed (non-fatal): {pdEx.Message}");
                     }
-                    catch (Exception ex) { CrashReporter.Log($"[InstallEventHandler] DLSS Enabler post-install deploy failed — {ex.Message}"); }
                 }
 
-                // Apply persisted FG settings to the newly deployed OptiScaler.ini
-                var fgInput2 = ViewModel.GetOsFgInput(card.GameName, card.Source ?? "");
-                var fgOutput2 = ViewModel.GetOsFgOutput(card.GameName, card.Source ?? "");
-                var fgNvngx2 = ViewModel.GetOsFgNvngxReplacement(card.GameName, card.Source ?? "");
-                if (fgInput2 != "auto" || fgOutput2 != "auto")
-                    OptiScalerService.ApplyFgSettings(card.InstallPath, fgInput2, fgOutput2, fgNvngx2);
-            }
-        }
-        catch (Exception ex)
-        {
-            card.OsActionMessage = $"❌ Install failed: {ex.Message}";
-        }
-        finally
-        {
-            card.OsIsInstalling = false;
-            // Update installed version from the record — shows the actual build date rather than latest staged
-            if (osRecord != null && osVariant == "Nightly" && !string.IsNullOrEmpty(osRecord.OsNightlyBuild))
-                card.OsInstalledVersion = osRecord.OsNightlyBuild;
-            _window.DispatcherQueue?.TryEnqueue(() =>
-            {
+                card.OsActionMessage = "✅ OptiScaler installed!";
+                card.OsStatus = GameStatus.Installed;
                 card.NotifyAll();
-                _window.PopulateDetailPanel(card);
-            });
+                card.FadeMessage(m => card.OsActionMessage = m, card.OsActionMessage);
+
+                // Clear the DLSS skip cache for this game — OptiScaler just deployed nvngx_dlss.dll
+                // and/or Streamline, so the next Refresh must scan it rather than skipping it.
+                _dlssStreamlineService.RecordDlssFound(card.GameName);
+
+                // ── Post-install: Deploy Streamline and DLSS Enabler if pre-enabled ──
+                if ((osVariant == "Nightly" || osVariant == "DlssNr") && !string.IsNullOrEmpty(card.InstallPath))
+                {
+                    if (ViewModel.GetOsDeployStreamline(card.GameName, card.Source ?? ""))
+                    {
+                        try
+                        {
+                            // Deploy directly to the correct version — no swap needed, no .original backups
+                            var selectedSlVersion = ViewModel.GetOsStreamlineVersion(card.GameName, card.Source ?? "");
+                            _optiScalerService.DeployStreamlineToGame(card.InstallPath, selectedSlVersion);
+                        }
+                        catch (Exception ex) { CrashReporter.Log($"[InstallEventHandler] Streamline post-install deploy failed — {ex.Message}"); }
+                    }
+                    if (ViewModel.GetOsDeployDlssEnabler(card.GameName, card.Source ?? ""))
+                    {
+                        try
+                        {
+                            var dlssEnablerService = App.Services.GetRequiredService<DlssEnablerService>();
+                            var optiScalerDir = Path.Combine(card.InstallPath, "OptiScaler");
+                            _ = dlssEnablerService.InstallAsync(optiScalerDir);
+                        }
+                        catch (Exception ex) { CrashReporter.Log($"[InstallEventHandler] DLSS Enabler post-install deploy failed — {ex.Message}"); }
+                    }
+
+                    // Apply persisted FG settings to the newly deployed OptiScaler.ini
+                    var fgInput2 = ViewModel.GetOsFgInput(card.GameName, card.Source ?? "");
+                    var fgOutput2 = ViewModel.GetOsFgOutput(card.GameName, card.Source ?? "");
+                    var fgNvngx2 = ViewModel.GetOsFgNvngxReplacement(card.GameName, card.Source ?? "");
+                    if (fgInput2 != "auto" || fgOutput2 != "auto")
+                        OptiScalerService.ApplyFgSettings(card.InstallPath, fgInput2, fgOutput2, fgNvngx2);
+                }
+            }
+            catch (Exception ex)
+            {
+                card.OsActionMessage = $"❌ Install failed: {ex.Message}";
+            }
+            finally
+            {
+                card.OsIsInstalling = false;
+                // Update installed version from the record — shows the actual build date rather than latest staged
+                if (osRecord != null && osVariant == "Nightly" && !string.IsNullOrEmpty(osRecord.OsNightlyBuild))
+                    card.OsInstalledVersion = osRecord.OsNightlyBuild;
+                _window.DispatcherQueue?.TryEnqueue(() =>
+                {
+                    card.NotifyAll();
+                    _window.PopulateDetailPanel(card);
+                });
+            }
+        }
+        catch (Exception unhandledEx)
+        {
+            CrashReporter.Log($"[InstallEventHandler.InstallOsButton_Click] Unhandled error — {unhandledEx.Message}\n{unhandledEx.StackTrace}");
         }
     }
 
@@ -369,14 +425,14 @@ public class InstallEventHandler
                 if (!string.IsNullOrEmpty(card.InstallPath))
                 {
                     if (ViewModel.GetOsDilatedMotionVectorsOff(gn, st))
-                        try { AuxInstallService.RemoveEngineIniCustomKeys(card.InstallPath, new[] { "r.NGX.DLSS.DilateMotionVectors", "r.Streamline.DilateMotionVectors" }, card.EngineIniProjectOverride, gn, card.Source); } catch { }
+                        try { AuxInstallService.RemoveEngineIniCustomKeys(card.InstallPath, new[] { "r.NGX.DLSS.DilateMotionVectors", "r.Streamline.DilateMotionVectors" }, card.EngineIniProjectOverride, gn, card.Source); } catch (Exception ex) { CrashReporter.Log($"[InstallEventHandler.UninstallOptiScaler] Failed to remove DilateMotionVectors Engine.ini keys — {ex.Message}"); }
                     var fsrFix = ViewModel.GetOsFsrCrashFix(gn, st);
                     if (!string.IsNullOrEmpty(fsrFix) && fsrFix != "None")
-                        try { AuxInstallService.RemoveEngineIniCustomKeys(card.InstallPath, new[] { "r.FidelityFX.FSR2.UseNativeDX12", "r.FidelityFX.FSR3.UseNativeDX12", "r.FidelityFX.FSR3.UseRHI" }, card.EngineIniProjectOverride, gn, card.Source); } catch { }
+                        try { AuxInstallService.RemoveEngineIniCustomKeys(card.InstallPath, new[] { "r.FidelityFX.FSR2.UseNativeDX12", "r.FidelityFX.FSR3.UseNativeDX12", "r.FidelityFX.FSR3.UseRHI" }, card.EngineIniProjectOverride, gn, card.Source); } catch (Exception ex) { CrashReporter.Log($"[InstallEventHandler.UninstallOptiScaler] Failed to remove FSR crash-fix Engine.ini keys — {ex.Message}"); }
                     if (ViewModel.GetOsFsrFgSwapchain(gn, st))
-                        try { AuxInstallService.RemoveEngineIniCustomKeys(card.InstallPath, new[] { "r.FidelityFX.FI.OverrideSwapChainDX12" }, card.EngineIniProjectOverride, gn, card.Source); } catch { }
+                        try { AuxInstallService.RemoveEngineIniCustomKeys(card.InstallPath, new[] { "r.FidelityFX.FI.OverrideSwapChainDX12" }, card.EngineIniProjectOverride, gn, card.Source); } catch (Exception ex) { CrashReporter.Log($"[InstallEventHandler.UninstallOptiScaler] Failed to remove FSR FG swapchain Engine.ini keys — {ex.Message}"); }
                     if (ViewModel.GetOsUpscalerPlugin(gn, st))
-                        try { AuxInstallService.RemoveEngineIniCustomKeys(card.InstallPath, new[] { "r.AntiAliasingMethod", "r.TemporalAA.Upscaler" }, card.EngineIniProjectOverride, gn, card.Source); } catch { }
+                        try { AuxInstallService.RemoveEngineIniCustomKeys(card.InstallPath, new[] { "r.AntiAliasingMethod", "r.TemporalAA.Upscaler" }, card.EngineIniProjectOverride, gn, card.Source); } catch (Exception ex) { CrashReporter.Log($"[InstallEventHandler.UninstallOptiScaler] Failed to remove upscaler plugin Engine.ini keys — {ex.Message}"); }
                 }
                 // Clear persisted per-game settings
                 ViewModel.SetOsDeployStreamline(gn, false, st);
@@ -432,16 +488,23 @@ public class InstallEventHandler
 
     public async void InstallRefButton_Click(object sender, RoutedEventArgs e)
     {
-        var card = (sender as FrameworkElement)?.Tag as GameCardViewModel;
-        if (card == null) return;
-        if (string.IsNullOrEmpty(card.InstallPath) || !System.IO.Directory.Exists(card.InstallPath))
+        try
         {
-            var folder = await _pickFolderAsync(null);
-            if (folder == null) return;
-            card.InstallPath = folder;
-            ViewModel.SaveLibraryPublic();
+            var card = (sender as FrameworkElement)?.Tag as GameCardViewModel;
+            if (card == null) return;
+            if (string.IsNullOrEmpty(card.InstallPath) || !System.IO.Directory.Exists(card.InstallPath))
+            {
+                var folder = await _pickFolderAsync(null);
+                if (folder == null) return;
+                card.InstallPath = folder;
+                ViewModel.SaveLibraryPublic();
+            }
+            await ViewModel.InstallREFrameworkCommand.ExecuteAsync(card);
         }
-        await ViewModel.InstallREFrameworkCommand.ExecuteAsync(card);
+        catch (Exception unhandledEx)
+        {
+            CrashReporter.Log($"[InstallEventHandler.InstallRefButton_Click] Unhandled error — {unhandledEx.Message}\n{unhandledEx.StackTrace}");
+        }
     }
 
     public void UninstallRefButton_Click(object sender, RoutedEventArgs e)
@@ -452,16 +515,23 @@ public class InstallEventHandler
 
     public async void InstallLumaButton_Click(object sender, RoutedEventArgs e)
     {
-        var card = (sender as FrameworkElement)?.Tag as GameCardViewModel;
-        if (card == null) return;
-
-        // Warn when installing Luma alongside an already-installed RenoDX mod
-        if (card.IsRdxInstalled && !ViewModel.Settings.LumaRenodxCombinedWarningDismissed)
+        try
         {
-            if (!await ShowLumaRenodxCombinedWarning(sender)) return;
-        }
+            var card = (sender as FrameworkElement)?.Tag as GameCardViewModel;
+            if (card == null) return;
 
-        await ViewModel.InstallLumaAsync(card);
+            // Warn when installing Luma alongside an already-installed RenoDX mod
+            if (card.IsRdxInstalled && !ViewModel.Settings.LumaRenodxCombinedWarningDismissed)
+            {
+                if (!await ShowLumaRenodxCombinedWarning(sender)) return;
+            }
+
+            await ViewModel.InstallLumaAsync(card);
+        }
+        catch (Exception unhandledEx)
+        {
+            CrashReporter.Log($"[InstallEventHandler.InstallLumaButton_Click] Unhandled error — {unhandledEx.Message}\n{unhandledEx.StackTrace}");
+        }
     }
 
     public void UninstallLumaButton_Click(object sender, RoutedEventArgs e)
@@ -472,34 +542,48 @@ public class InstallEventHandler
 
     public async void ChooseShadersButton_Click(object sender, RoutedEventArgs e)
     {
-        var result = await ShaderPopupHelper.ShowAsync(
-            _window.Content.XamlRoot,
-            _shaderPackService,
-            ViewModel.Settings.SelectedShaderPacks,
-            ShaderPopupHelper.PopupContext.Global);
-
-        if (result != null)
+        try
         {
-            ViewModel.Settings.SelectedShaderPacks = result;
-            ViewModel.SaveSettingsPublic();
-            ViewModel.DeployAllShaders();
+            var result = await ShaderPopupHelper.ShowAsync(
+                _window.Content.XamlRoot,
+                _shaderPackService,
+                ViewModel.Settings.SelectedShaderPacks,
+                ShaderPopupHelper.PopupContext.Global);
+
+            if (result != null)
+            {
+                ViewModel.Settings.SelectedShaderPacks = result;
+                ViewModel.SaveSettingsPublic();
+                ViewModel.DeployAllShaders();
+            }
+        }
+        catch (Exception unhandledEx)
+        {
+            CrashReporter.Log($"[InstallEventHandler.ChooseShadersButton_Click] Unhandled error — {unhandledEx.Message}\n{unhandledEx.StackTrace}");
         }
     }
 
     public async void ChooseAddonsButton_Click(object sender, RoutedEventArgs e)
     {
-        var addonService = ViewModel.AddonPackServiceInstance;
-        var currentSelection = addonService.DownloadedAddonNames.ToList();
-
-        var result = await AddonPopupHelper.ShowAsync(
-            _window.Content.XamlRoot,
-            addonService,
-            currentSelection,
-            AddonPopupHelper.PopupContext.Global);
-
-        if (result != null)
+        try
         {
-            ViewModel.DeployAllAddons();
+            var addonService = ViewModel.AddonPackServiceInstance;
+            var currentSelection = addonService.DownloadedAddonNames.ToList();
+
+            var result = await AddonPopupHelper.ShowAsync(
+                _window.Content.XamlRoot,
+                addonService,
+                currentSelection,
+                AddonPopupHelper.PopupContext.Global);
+
+            if (result != null)
+            {
+                ViewModel.DeployAllAddons();
+            }
+        }
+        catch (Exception unhandledEx)
+        {
+            CrashReporter.Log($"[InstallEventHandler.ChooseAddonsButton_Click] Unhandled error — {unhandledEx.Message}\n{unhandledEx.StackTrace}");
         }
     }
 

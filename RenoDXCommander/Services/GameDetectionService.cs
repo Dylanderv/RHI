@@ -131,7 +131,7 @@ public partial class GameDetectionService : IGameDetectionService
                 return $"{info.FileMajorPart}.{info.FileMinorPart}";
             }
         }
-        catch { }
+        catch (Exception) { /* probe on game exe, runs per game each scan; unreadable = unknown UE version */ }
         return null;
     }
 
@@ -156,7 +156,7 @@ public partial class GameDetectionService : IGameDetectionService
                 }
             }
         }
-        catch { }
+        catch (Exception) { /* probe, runs per game each scan; missing/malformed Build.version = unknown UE version */ }
         return null;
     }
 
@@ -188,7 +188,7 @@ public partial class GameDetectionService : IGameDetectionService
             if (largestExe != null)
                 return ReadUeVersionFromExe(largestExe);
         }
-        catch { }
+        catch (Exception) { /* probe, runs per game each scan; inaccessible folder = unknown UE version */ }
         return null;
     }
 

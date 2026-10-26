@@ -465,7 +465,7 @@ public partial class DragDropHandler
         {
             // Capture the previously-installed version before overwriting — for update log
             string? previousVersion = null;
-            try { previousVersion = AuxInstallService.ReadInstalledVersion(addonDeployPath, effectiveAddonFileName); } catch { }
+            try { previousVersion = AuxInstallService.ReadInstalledVersion(addonDeployPath, effectiveAddonFileName); } catch (Exception ex) { CrashReporter.Log($"[DragDropHandler.ProcessDroppedAddon] Failed to read previous addon version — {ex.Message}"); }
 
             File.Copy(addonPath, destPath, overwrite: true);
             _crashReporter.Log($"[DragDropHandler.ProcessDroppedAddon] Installed '{effectiveAddonFileName}' to '{addonDeployPath}'");
@@ -503,7 +503,7 @@ public partial class DragDropHandler
                     NewVersion    = newVersion ?? (string.IsNullOrEmpty(modId) ? effectiveAddonFileName : modId),
                 });
             }
-            catch { }
+            catch (Exception ex) { CrashReporter.Log($"[DragDropHandler.ProcessDroppedAddon] Failed to record update log entry — {ex.Message}"); }
 
             // Deploy Engine.ini LUT setting for Unreal Engine games (same as normal install flow)
             if (targetCard.EngineHint?.Contains("Unreal") == true)
@@ -759,7 +759,7 @@ public partial class DragDropHandler
             }
             finally
             {
-                try { if (File.Exists(lumaTemp)) File.Delete(lumaTemp); } catch { }
+                try { if (File.Exists(lumaTemp)) File.Delete(lumaTemp); } catch (Exception ex) { CrashReporter.Log($"[DragDropHandler.ProcessDroppedUrl] Failed to delete temp file '{lumaTemp}' — {ex.Message}"); }
             }
             return;
         }
@@ -923,7 +923,7 @@ public partial class DragDropHandler
             if (!HasPeSignature(cachePath))
             {
                 _crashReporter.Log($"[DragDropHandler.ProcessDroppedUrl] Downloaded file '{filename}' is not a valid PE binary — deleting");
-                try { File.Delete(cachePath); } catch { }
+                try { File.Delete(cachePath); } catch (Exception ex) { CrashReporter.Log($"[DragDropHandler.ProcessDroppedUrl] Failed to delete cache file '{cachePath}' — {ex.Message}"); }
                 await progressSession.DisposeAsync();
                 var errDialog = new ContentDialog
                 {

@@ -232,13 +232,13 @@ public partial class DlssPresetService
                 System.Text.Json.JsonSerializer.Serialize(_persistentProfileNameCache,
                     new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
         }
-        catch { }
+        catch (Exception ex) { CrashReporter.Log($"[DlssPresetService.SavePersistentProfileCache] Failed to write profile name cache — {ex.Message}"); }
     }
 
     public void ClearProfileNameCache()
     {
         _persistentProfileNameCache = new Dictionary<string, string?>();
-        try { if (File.Exists(ProfileNameCachePath)) File.Delete(ProfileNameCachePath); } catch { }
+        try { if (File.Exists(ProfileNameCachePath)) File.Delete(ProfileNameCachePath); } catch (Exception ex) { CrashReporter.Log($"[DlssPresetService.ClearProfileNameCache] Failed to delete profile name cache — {ex.Message}"); }
         CrashReporter.Log("[DlssPresetService.ClearProfileNameCache] Persistent profile name cache cleared");
     }
 
@@ -464,7 +464,7 @@ public partial class DlssPresetService
                         .Select(Path.GetFileName)
                         .FirstOrDefault();
                 }
-                catch { }
+                catch (Exception ex) { CrashReporter.Log($"[DlssPresetService.CreateProfileForGame] Failed to enumerate exes in '{installPath}' — {ex.Message}"); }
             }
 
             if (string.IsNullOrEmpty(gameExe)) return null;

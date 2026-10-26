@@ -116,7 +116,7 @@ public class ReShadeExtractor : ISevenZipExtractor
                 catch (OperationCanceledException)
                 {
                     CrashReporter.Log("[ReShadeExtractor.ExtractWith7ZipAsync] 7z process timed out after 30 seconds");
-                    try { proc.Kill(); } catch { }
+                    try { proc.Kill(); } catch (Exception ex) { CrashReporter.Log($"[ReShadeExtractor.ExtractWith7ZipAsync] Failed to kill timed-out 7z process — {ex.Message}"); }
                     return false;
                 }
 
@@ -216,7 +216,7 @@ public class ReShadeExtractor : ISevenZipExtractor
                 }
                 catch (OperationCanceledException)
                 {
-                    try { proc.Kill(); } catch { }
+                    try { proc.Kill(); } catch (Exception ex) { CrashReporter.Log($"[ReShadeExtractor.Find7ZipExeAsync] Failed to kill timed-out 7z probe — {ex.Message}"); }
                 }
             }
         }

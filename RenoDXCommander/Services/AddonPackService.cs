@@ -89,8 +89,8 @@ public class AddonPackService : IAddonPackService
     public AddonPackService(HttpClient http)
     {
         _http = http;
-        try { Directory.CreateDirectory(StagingDir); } catch { }
-        try { Directory.CreateDirectory(CustomAddonsDir); } catch { }
+        try { Directory.CreateDirectory(StagingDir); } catch (Exception ex) { CrashReporter.Log($"[AddonPackService.ctor] Failed to create staging folder — {ex.Message}"); }
+        try { Directory.CreateDirectory(CustomAddonsDir); } catch (Exception ex) { CrashReporter.Log($"[AddonPackService.ctor] Failed to create custom addons folder — {ex.Message}"); }
 
         // One-time migration: eagerly remove stale "RenoDX DLSS5.addon64" at construction time
         // so it can't be deployed before EnsureLatestAsync runs.
@@ -101,7 +101,7 @@ public class AddonPackService : IAddonPackService
             var staleCustom = Path.Combine(CustomAddonsDir, "RenoDX DLSS5.addon64");
             if (File.Exists(staleCustom)) File.Delete(staleCustom);
         }
-        catch { }
+        catch (Exception ex) { CrashReporter.Log($"[AddonPackService.ctor] Stale 'RenoDX DLSS5.addon64' cleanup failed — {ex.Message}"); }
     }
 
     // ── Public properties ─────────────────────────────────────────────────────────
@@ -233,7 +233,7 @@ public class AddonPackService : IAddonPackService
             {
                 if (!files.Contains(staleName)) continue;
                 var gameFile = Path.Combine(path, staleName);
-                try { if (File.Exists(gameFile)) { File.Delete(gameFile); CrashReporter.Log($"[AddonPackService] Removed stale '{staleName}' from '{path}'"); } } catch { }
+                try { if (File.Exists(gameFile)) { File.Delete(gameFile); CrashReporter.Log($"[AddonPackService] Removed stale '{staleName}' from '{path}'"); } } catch (Exception ex) { CrashReporter.Log($"[AddonPackService.EnsureLatestAsync] Failed to remove stale '{staleName}' from '{path}' — {ex.Message}"); }
                 files.Remove(staleName);
                 deploymentsChanged = true;
             }
@@ -261,11 +261,11 @@ public class AddonPackService : IAddonPackService
                     foreach (var installPath in allPaths)
                     {
                         var staleGame = Path.Combine(installPath, staleName);
-                        try { if (File.Exists(staleGame)) { File.Delete(staleGame); CrashReporter.Log($"[AddonPackService] Removed stale '{staleName}' from game folder '{installPath}'"); } } catch { }
+                        try { if (File.Exists(staleGame)) { File.Delete(staleGame); CrashReporter.Log($"[AddonPackService] Removed stale '{staleName}' from game folder '{installPath}'"); } } catch (Exception ex) { CrashReporter.Log($"[AddonPackService.EnsureLatestAsync] Failed to remove stale '{staleName}' from '{installPath}' — {ex.Message}"); }
                     }
                 }
             }
-            catch { }
+            catch (Exception ex) { CrashReporter.Log($"[AddonPackService.EnsureLatestAsync] Library scan for stale addon failed — {ex.Message}"); }
         }
         catch (Exception ex) { CrashReporter.Log($"[AddonPackService] Stale file migration failed — {ex.Message}"); }
 
@@ -289,7 +289,7 @@ public class AddonPackService : IAddonPackService
                 bool nrSectionOwnsGame = string.Equals(nrMethod, "ShortFuse", StringComparison.OrdinalIgnoreCase);
                 if (!nrSectionOwnsGame) continue;
                 var gameFile = Path.Combine(path, dlss5Addon);
-                try { if (File.Exists(gameFile)) { File.Delete(gameFile); CrashReporter.Log($"[AddonPackService] Removed spurious '{dlss5Addon}' (NR={nrMethod}) from '{path}'"); } } catch { }
+                try { if (File.Exists(gameFile)) { File.Delete(gameFile); CrashReporter.Log($"[AddonPackService] Removed spurious '{dlss5Addon}' (NR={nrMethod}) from '{path}'"); } } catch (Exception ex) { CrashReporter.Log($"[AddonPackService.EnsureLatestAsync] Failed to remove spurious '{dlss5Addon}' from '{path}' — {ex.Message}"); }
                 files.Remove(dlss5Addon);
                 deploymentsChanged = true;
             }
@@ -1188,7 +1188,7 @@ public class AddonPackService : IAddonPackService
         }
         catch
         {
-            if (File.Exists(tempPath)) try { File.Delete(tempPath); } catch { }
+            if (File.Exists(tempPath)) try { File.Delete(tempPath); } catch (Exception) { /* best-effort temp cleanup; the original exception is rethrown below */ }
             throw;
         }
     }
@@ -1271,7 +1271,7 @@ public class AddonPackService : IAddonPackService
         }
         finally
         {
-            if (File.Exists(tempZip)) try { File.Delete(tempZip); } catch { }
+            if (File.Exists(tempZip)) try { File.Delete(tempZip); } catch (Exception ex) { CrashReporter.Log($"[AddonPackService.DownloadAndExtractZipAsync] Failed to delete temp zip '{tempZip}' — {ex.Message}"); }
         }
     }
 
@@ -1300,9 +1300,8 @@ public class AddonPackService : IAddonPackService
             using var req = new HttpRequestMessage(HttpMethod.Get, effectiveUrl);
             req.Headers.Add("User-Agent", "RHI");
             req.Headers.Add("Accept", "application/vnd.github+json");
-            var token = DevUnlockService.GitHubApiToken;
-            if (!string.IsNullOrEmpty(token))
-                req.Headers.Add("Authorization", $"Bearer {token}");
+            // GitHub token is attached by GitHubTokenHandler for GitHub hosts only
+            // (releaseApiUrl comes from the manifest and could point anywhere).
             using var resp = await _http.SendAsync(req).ConfigureAwait(false);
             if (!resp.IsSuccessStatusCode)
             {
@@ -1572,7 +1571,7 @@ public class AddonPackService : IAddonPackService
             if (deployments.TryGetValue(installPath, out var files))
                 return files.Contains(addonFileName);
         }
-        catch { }
+        catch (Exception) { /* unreadable deployments data: treat as not tracked (called per game) */ }
         return false;
     }
 

@@ -283,7 +283,7 @@ public partial class DlssPresetService
                         return true;
                 }
             }
-            catch { }
+            catch (Exception ex2) { CrashReporter.Log($"[DlssPresetService.SetGlobalVSyncMode] Raw NvAPI fallback failed — {ex2.Message}"); }
             CrashReporter.Log($"[DlssPresetService.SetGlobalVSyncMode] Error — {ex.Message}");
             return false;
         }
@@ -331,7 +331,7 @@ public partial class DlssPresetService
                         return true;
                 }
             }
-            catch { }
+            catch (Exception ex2) { CrashReporter.Log($"[DlssPresetService.SetGlobalPowerMode] Raw NvAPI fallback failed — {ex2.Message}"); }
             CrashReporter.Log($"[DlssPresetService.SetGlobalPowerMode] Error — {ex.Message}");
             return false;
         }
@@ -552,10 +552,10 @@ $destroyDel.Invoke($hSession) | Out-Null
             {
                 var output = File.ReadAllText(logPath).Trim();
                 CrashReporter.Log($"[DlssPresetService.SetLowLatencyElevated] Script output: {output}");
-                try { File.Delete(logPath); } catch { }
+                try { File.Delete(logPath); } catch (Exception) { /* temp file in %TEMP%; a leftover is harmless */ }
             }
 
-            try { File.Delete(scriptPath); } catch { }
+            try { File.Delete(scriptPath); } catch (Exception) { /* temp file in %TEMP%; a leftover is harmless */ }
 
             // Reload session to reflect changes
             _session = DriverSettingsSession.CreateAndLoad();
@@ -759,7 +759,7 @@ $destroyDel.Invoke($hSession) | Out-Null
                 if (rawVal.HasValue) return rawVal.Value;
             }
         }
-        catch { }
+        catch (Exception ex) { CrashReporter.Log($"[DlssPresetService.GetGlobalGSyncEnabled] Read failed, using default — {ex.Message}"); }
         return 0x00000001;
     }
 
@@ -813,7 +813,7 @@ $destroyDel.Invoke($hSession) | Out-Null
                 if (rawVal.HasValue) return rawVal.Value;
             }
         }
-        catch { }
+        catch (Exception ex) { CrashReporter.Log($"[DlssPresetService.GetGlobalFpsLimit] Read failed, using default — {ex.Message}"); }
         return 0;
     }
 
@@ -860,7 +860,7 @@ $destroyDel.Invoke($hSession) | Out-Null
                 if (rawVal.HasValue) return rawVal.Value;
             }
         }
-        catch { }
+        catch (Exception ex) { CrashReporter.Log($"[DlssPresetService.GetGlobalDmfgFrameCount] Read failed, using default — {ex.Message}"); }
         return 0;
     }
 
@@ -904,7 +904,7 @@ $destroyDel.Invoke($hSession) | Out-Null
                 if (rawVal.HasValue) return rawVal.Value;
             }
         }
-        catch { }
+        catch (Exception ex) { CrashReporter.Log($"[DlssPresetService.GetGlobalDmfgTargetFps] Read failed, using default — {ex.Message}"); }
         return 0;
     }
 
@@ -990,7 +990,7 @@ $destroyDel.Invoke($hSession) | Out-Null
                 if (rawVal.HasValue) return rawVal.Value == 0x01;
             }
         }
-        catch { }
+        catch (Exception ex) { CrashReporter.Log($"[DlssPresetService.GetGlobalGSyncIndicator] Read failed, using default — {ex.Message}"); }
         return false;
     }
 
@@ -1136,7 +1136,7 @@ $session.Save()
             var process = System.Diagnostics.Process.Start(psi);
             if (process == null) return false;
             process.WaitForExit(10000);
-            try { File.Delete(scriptPath); } catch { }
+            try { File.Delete(scriptPath); } catch (Exception) { /* temp file in %TEMP%; a leftover is harmless */ }
 
             if (enabled)
             {
@@ -1155,7 +1155,7 @@ $session.Save()
                     _cachedProfiles.TryAdd(p.Name, p);
                 InvalidateProfileLookupCache();
             }
-            catch { }
+            catch (Exception ex) { CrashReporter.Log($"[DlssPresetService.SetGlobalReBarEnabled] Driver session reload failed — {ex.Message}"); }
 
             CrashReporter.Log($"[DlssPresetService.SetGlobalReBarEnabled] Set to {enabled}");
             return true;

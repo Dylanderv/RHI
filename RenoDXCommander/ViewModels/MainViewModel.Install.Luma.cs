@@ -869,11 +869,51 @@ public partial class MainViewModel
         card.NotifyAll();
     }
 
+    /// <summary>
+    /// Adds a Luma entry to Update History when an install replaced an older build
+    /// (GitHub build number) or an older Nexus file. Fresh installs are not logged.
+    /// </summary>
+    private void RecordLumaUpdate(string gameName, LumaInstalledRecord? previous, LumaInstalledRecord? current)
+    {
+        if (previous == null || current == null) return;
+
+        string? oldVer = null, newVer = null;
+        if (current.InstalledBuildNumber > 0 && current.InstalledBuildNumber > previous.InstalledBuildNumber)
+        {
+            oldVer = previous.InstalledBuildNumber > 0 ? $"build {previous.InstalledBuildNumber}" : null;
+            newVer = $"build {current.InstalledBuildNumber}";
+        }
+        else if (current.NexusFileId != null && current.NexusFileId != previous.NexusFileId)
+        {
+            oldVer = previous.NexusFileId != null ? $"file {previous.NexusFileId}" : null;
+            newVer = $"file {current.NexusFileId}";
+        }
+        if (newVer == null) return;
+
+        try
+        {
+            App.Services.GetRequiredService<IUpdateLogService>().Record(new Models.UpdateLogEntry
+            {
+                Timestamp     = DateTime.UtcNow,
+                Category      = "Luma",
+                ComponentName = gameName,
+                OldVersion    = oldVer,
+                NewVersion    = newVer,
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _crashReporter.Log($"[MainViewModel.RecordLumaUpdate] Could not write update history — {ex.Message}");
+        }
+    }
+
     public async Task InstallLumaAsync(GameCardViewModel? card, bool skipWarning = false)
     {
         if (card?.LumaMod == null || string.IsNullOrEmpty(card.InstallPath)) return;
 
         var mod = card.LumaMod;
+        // Captured before install so a newer build can be logged to Update History
+        var previousRecord = card.LumaRecord;
 
         // Nexus-only mod (no GitHub download URL) — either open browser or use premium CDN
         if (mod.DownloadUrl == null && mod.NexusUrl != null)
@@ -975,7 +1015,7 @@ public partial class MainViewModel
                 }
                 finally
                 {
-                    try { File.Delete(tempPath); } catch { }
+                    try { File.Delete(tempPath); } catch (Exception ex) { CrashReporter.Log($"[MainViewModel.InstallLumaAsync] Temp file cleanup failed — {ex.Message}"); }
                 }
             }
             else if (mod.DownloadUrl == null)
@@ -1006,6 +1046,8 @@ public partial class MainViewModel
                     }),
                     card.Source);
             }
+
+            RecordLumaUpdate(card.GameName, previousRecord, record);
 
             // Marshal card property mutations to the UI thread after ConfigureAwait(false) paths
             DispatcherQueue?.TryEnqueue(() =>
@@ -1221,8 +1263,8 @@ public partial class MainViewModel
                     var sentinelSize = new FileInfo(sentinelPath).Length;
                     if (sentinelSize == 0)
                     {
-                        try { File.Delete(dlssPath); } catch { }
-                        try { File.Delete(sentinelPath); } catch { }
+                        try { File.Delete(dlssPath); } catch (Exception ex) { CrashReporter.Log($"[MainViewModel.UninstallLuma] Failed to delete RHI-deployed nvngx_dlss.dll — {ex.Message}"); }
+                        try { File.Delete(sentinelPath); } catch (Exception ex) { CrashReporter.Log($"[MainViewModel.UninstallLuma] Failed to delete DLSS sentinel — {ex.Message}"); }
                         _crashReporter.Log($"[UninstallLuma] Removed RHI-deployed nvngx_dlss.dll from '{card.InstallPath}'");
                     }
                     else

@@ -211,8 +211,12 @@ public class LiliumShaderService : ILiliumShaderService
                     if (rootDir == null || string.IsNullOrEmpty(relInRoot)) continue;
 
                     // Convert forward slashes to OS path separators and build destination
-                    var relPath  = relInRoot.Replace('/', Path.DirectorySeparatorChar);
-                    var destPath = Path.Combine(rootDir, relPath);
+                    var destPath = FileHelper.SafeCombine(rootDir, relInRoot);
+                    if (destPath == null)
+                    {
+                        CrashReporter.Log($"[LiliumShaderService.EnsureLatestAsync] Skipping archive entry outside the shader folder: '{key}'");
+                        continue;
+                    }
                     Directory.CreateDirectory(Path.GetDirectoryName(destPath)!);
 
                     using var entryStream = entry.OpenEntryStream();

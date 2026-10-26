@@ -232,7 +232,7 @@ public class DlssNrCostScalerService
             // Delete proxy and restore real DLL
             if (File.Exists(realDst))
             {
-                try { if (File.Exists(proxyDst)) File.Delete(proxyDst); } catch { }
+                try { if (File.Exists(proxyDst)) File.Delete(proxyDst); } catch (Exception ex) { _crashReporter.Log($"[DlssNrCostScalerService.Uninstall] Failed to delete '{ProxyDllName}' before restore — {ex.Message}"); }
                 File.Move(realDst, proxyDst);
                 _crashReporter.Log($"[DlssNrCostScalerService.Uninstall] Restored '{ProxyDllName}' from '{RealDllName}'");
             }
@@ -242,8 +242,8 @@ public class DlssNrCostScalerService
                 File.Delete(proxyDst);
             }
 
-            try { if (File.Exists(iniDst))   File.Delete(iniDst);   } catch { }
-            try { if (File.Exists(addonDst)) File.Delete(addonDst); } catch { }
+            try { if (File.Exists(iniDst))   File.Delete(iniDst);   } catch (Exception ex) { _crashReporter.Log($"[DlssNrCostScalerService.Uninstall] Failed to delete '{IniFileName}' — {ex.Message}"); }
+            try { if (File.Exists(addonDst)) File.Delete(addonDst); } catch (Exception ex) { _crashReporter.Log($"[DlssNrCostScalerService.Uninstall] Failed to delete '{CompanionAddonName}' — {ex.Message}"); }
 
             _crashReporter.Log($"[DlssNrCostScalerService.Uninstall] Cleaned up '{installPath}'");
         }

@@ -191,7 +191,7 @@ public class Dlssg20_30Service
                 AuxInstallService.SentinelRestore(Path.Combine(installPath, installedAs));
 
             var iniPath = Path.Combine(installPath, IniFileName);
-            try { if (File.Exists(iniPath)) File.Delete(iniPath); } catch { }
+            try { if (File.Exists(iniPath)) File.Delete(iniPath); } catch (Exception ex) { _crashReporter.Log($"[Dlssg20_30Service.Uninstall] Failed to delete '{IniFileName}' — {ex.Message}"); }
 
             _crashReporter.Log($"[Dlssg20_30Service.Uninstall] Removed from '{installPath}'");
         }

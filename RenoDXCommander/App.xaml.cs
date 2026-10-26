@@ -49,13 +49,12 @@ public partial class App : Application
                 InitialHttp2StreamWindowSize = 1024 * 1024, // 1 MB
             };
 
-            var client = new HttpClient(handler);
+            // GitHub API token — raises rate limit from 60 to 5000 req/hour. Attached per request,
+            // for GitHub hosts only, by GitHubTokenHandler (never a default header: this client
+            // also talks to non-GitHub hosts and manifest URLs).
+            GitHubTokenHandler.SetToken(DevUnlockService.GitHubApiToken);
+            var client = new HttpClient(new GitHubTokenHandler(handler));
             client.DefaultRequestHeaders.Add("User-Agent", "RHI/2.0");
-            // GitHub API token — raises rate limit from 60 to 5000 req/hour for all services.
-            // Set as a default header so every service inherits it without per-request wiring.
-            var ghToken = DevUnlockService.GitHubApiToken;
-            if (!string.IsNullOrEmpty(ghToken))
-                client.DefaultRequestHeaders.Add("Authorization", $"Bearer {ghToken}");
             // Per-request timeout — generous enough for large files on slow connections.
             // Individual services can set per-request timeouts via CancellationTokenSource
             // if they need tighter control.
@@ -191,7 +190,7 @@ public partial class App : Application
         if (File.Exists(minimizedSignalPath))
         {
             startMinimized = true;
-            try { File.Delete(minimizedSignalPath); } catch { }
+            try { File.Delete(minimizedSignalPath); } catch (Exception ex) { CrashReporter.Log($"[App.OnLaunched] Failed to delete start-minimized signal file — {ex.Message}"); }
         }
 
         CrashReporter.Log($"[App.OnLaunched] Args: [{string.Join(", ", cmdArgs)}], startMinimized={startMinimized}");
@@ -212,7 +211,7 @@ public partial class App : Application
                     CrashReporter.Log($"[App.OnLaunched] GPU driver: {gpuDriver.ModuleName} v{fi.FileVersion} ({System.IO.File.GetLastWriteTime(gpuDriver.FileName):yyyy-MM-dd})");
                 }
             }
-            catch { }
+            catch (Exception ex) { CrashReporter.Log($"[App.OnLaunched] GPU driver version detection failed — {ex.Message}"); }
         });
 
         if (!SingleInstanceService.TryAcquire())
@@ -226,7 +225,7 @@ public partial class App : Application
                 SingleInstanceService.SendToRunningInstance(addonArg);
             else
                 SingleInstanceService.SendToRunningInstance("--activate");
-            try { File.Delete(CrashReporter.CurrentSessionLogPath); } catch { }
+            try { File.Delete(CrashReporter.CurrentSessionLogPath); } catch (Exception) { /* Safe to ignore: deleting this instance's session log right before exit; logging here would recreate the file. */ }
             Environment.Exit(0);
             return;
         }
@@ -264,7 +263,7 @@ public partial class App : Application
                 // this exiting process for an active instance and exit itself.
                 SingleInstanceService.Stop();
                 System.Diagnostics.Process.Start(psi);
-                try { File.Delete(CrashReporter.CurrentSessionLogPath); } catch { }
+                try { File.Delete(CrashReporter.CurrentSessionLogPath); } catch (Exception) { /* Safe to ignore: deleting this instance's session log right before exit; logging here would recreate the file. */ }
                 Environment.Exit(0);
                 return;
             }
@@ -573,7 +572,7 @@ public partial class App : Application
             try { await proc.WaitForExitAsync(timeout.Token); }
             catch (OperationCanceledException)
             {
-                try { proc.Kill(); } catch { }
+                try { proc.Kill(); } catch (Exception ex) { CrashReporter.Log($"[App.IsAdminTaskRegisteredAsync] Failed to kill timed-out schtasks process — {ex.Message}"); }
                 CrashReporter.Log("[App] Admin task query timed out — continuing normal startup");
                 return false;
             }

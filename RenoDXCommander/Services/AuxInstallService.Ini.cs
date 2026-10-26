@@ -744,7 +744,7 @@ public partial class AuxInstallService
                 Directory.CreateDirectory(firstExpanded);
                 return firstExpanded;
             }
-            catch { }
+            catch (Exception ex) { CrashReporter.Log($"[AuxInstallService.ResolveEngineIniDir] Failed to create config dir '{firstExpanded}' — {ex.Message}"); }
             return null;
         }
 
@@ -806,7 +806,7 @@ public partial class AuxInstallService
                                 if (result != null) return result;
                             }
                         }
-                        catch { }
+                        catch (Exception ex) { CrashReporter.Log($"[AuxInstallService.ResolveEngineIniDir] Failed to scan '{gameRoot}' for Saved\\Config — {ex.Message}"); }
                     }
                     break;
                 }
@@ -1765,7 +1765,7 @@ public partial class AuxInstallService
                 var cachePath = Path.Combine(EngineIniFilesCacheDir, filename);
                 if (File.Exists(cachePath)) return await File.ReadAllTextAsync(cachePath).ConfigureAwait(false);
             }
-            catch { }
+            catch (Exception ex2) { CrashReporter.Log($"[AuxInstallService.FetchEngineIniFileAsync] Disk cache fallback failed for '{filename}' — {ex2.Message}"); }
             return null;
         }
     }
@@ -1918,7 +1918,7 @@ public partial class AuxInstallService
                                 if (Directory.Exists(subSaved)) return subDir;
                             }
                         }
-                        catch { }
+                        catch (Exception ex) { CrashReporter.Log($"[AuxInstallService.ResolveGameConfigRoot] Failed to scan '{gameRoot}' for Saved folder — {ex.Message}"); }
                     }
                     break;
                 }

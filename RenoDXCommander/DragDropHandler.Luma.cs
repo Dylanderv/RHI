@@ -112,7 +112,7 @@ public partial class DragDropHandler
                 return output.Contains("d3dcompiler_47_x32.dll", StringComparison.OrdinalIgnoreCase);
             }
         }
-        catch { }
+        catch (Exception ex) { CrashReporter.Log($"[DragDropHandler.IsLumaArchive32Bit] Failed to inspect '{archivePath}' — {ex.Message}"); }
         return false;
     }
 

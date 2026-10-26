@@ -84,9 +84,9 @@ public class ReShadeNightlyService
         try
         {
             foreach (var old in Directory.GetFiles(CacheDir, "ReShade_Setup_*.exe"))
-                try { File.Delete(old); } catch { }
+                try { File.Delete(old); } catch (Exception ex) { CrashReporter.Log($"[ReShadeNightlyService.EnsureLatestAsync] Failed to delete old installer — {ex.Message}"); }
         }
-        catch { }
+        catch (Exception ex) { CrashReporter.Log($"[ReShadeNightlyService.EnsureLatestAsync] Old installer cleanup failed — {ex.Message}"); }
 
         progress?.Report(($"ReShade nightly ({versionTag}) ready!", 100));
         CrashReporter.Log($"[ReShadeNightlyService.EnsureLatestAsync] Staged {versionTag} successfully (zip size={downloadedZipSize})");
@@ -185,7 +185,7 @@ public class ReShadeNightlyService
             }
             finally
             {
-                try { if (File.Exists(tempZip)) File.Delete(tempZip); } catch { }
+                try { if (File.Exists(tempZip)) File.Delete(tempZip); } catch (Exception ex) { CrashReporter.Log($"[ReShadeNightlyService.DownloadAndExtractAsync] Temp zip cleanup failed — {ex.Message}"); }
             }
         }
         catch (Exception ex)
@@ -233,7 +233,7 @@ public class ReShadeNightlyService
             if (File.Exists(ZipSizeFile) && long.TryParse(File.ReadAllText(ZipSizeFile).Trim(), out var size))
                 return size;
         }
-        catch { }
+        catch (Exception ex) { CrashReporter.Log($"[ReShadeNightlyService.ReadLastKnownZipSize] Failed to read zip size file — {ex.Message}"); }
         return -1;
     }
 

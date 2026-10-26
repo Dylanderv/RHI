@@ -106,7 +106,7 @@ public partial class DlssPresetService
                 if (raw.HasValue) return raw.Value;
             }
         }
-        catch { }
+        catch (Exception ex) { CrashReporter.Log($"[DlssPresetService.GetReBarEnableMode] Read failed for '{gameName}', using Auto — {ex.Message}"); }
         return 1; // Not set = Auto
     }
 
@@ -127,17 +127,17 @@ public partial class DlssPresetService
             if (mode == 1) // Auto — remove legacy override entirely
             {
                 var profile = FindProfile(gameName, installPath);
-                if (profile != null) { try { profile.DeleteSetting(REBAR_FEATURE_ID); profile.DeleteSetting(REBAR_EXPR_MODES_ID); profile.DeleteSetting(REBAR_SIZE_LIMIT_ID); _session?.Save(); } catch { } }
+                if (profile != null) { try { profile.DeleteSetting(REBAR_FEATURE_ID); profile.DeleteSetting(REBAR_EXPR_MODES_ID); profile.DeleteSetting(REBAR_SIZE_LIMIT_ID); _session?.Save(); } catch (Exception) { /* DeleteSetting throws when the setting isn't in the profile; nothing to remove */ } }
             }
             else if (mode == 0) // Off — delete legacy settings and size limit (no Disabled entry)
             {
                 var profile = FindProfile(gameName, installPath);
-                if (profile != null) { try { profile.DeleteSetting(REBAR_FEATURE_ID); profile.DeleteSetting(REBAR_EXPR_MODES_ID); profile.DeleteSetting(REBAR_SIZE_LIMIT_ID); _session?.Save(); } catch { } }
+                if (profile != null) { try { profile.DeleteSetting(REBAR_FEATURE_ID); profile.DeleteSetting(REBAR_EXPR_MODES_ID); profile.DeleteSetting(REBAR_SIZE_LIMIT_ID); _session?.Save(); } catch (Exception) { /* DeleteSetting throws when the setting isn't in the profile; nothing to remove */ } }
             }
             else // On
                 SetReBarEnabled(gameName, installPath, true, 2u);
         }
-        catch { }
+        catch (Exception ex) { CrashReporter.Log($"[DlssPresetService.SetReBarEnableMode] Legacy ReBAR setting sync failed for '{gameName}' — {ex.Message}"); }
         return ok;
     }
 
@@ -159,7 +159,7 @@ public partial class DlssPresetService
                 if (raw.HasValue) return raw.Value;
             }
         }
-        catch { }
+        catch (Exception ex) { CrashReporter.Log($"[DlssPresetService.GetGlobalReBarEnableMode] Read failed, using Auto — {ex.Message}"); }
         return 1; // Not set = Auto
     }
 
@@ -215,7 +215,7 @@ $session.Save()
             System.Diagnostics.Process.Start(psi);
             // Pause to let the elevated PS complete — base profile writes are fast
             System.Threading.Thread.Sleep(3000);
-            try { File.Delete(scriptPath); } catch { }
+            try { File.Delete(scriptPath); } catch (Exception) { /* temp file in %TEMP%; a leftover is harmless */ }
             // Reload session
             try
             {
@@ -224,7 +224,7 @@ $session.Save()
                 foreach (var p in _session.Profiles) _cachedProfiles.TryAdd(p.Name, p);
                 InvalidateProfileLookupCache();
             }
-            catch { }
+            catch (Exception ex) { CrashReporter.Log($"[DlssPresetService.SetGlobalReBarEnableMode] Driver session reload failed — {ex.Message}"); }
             CrashReporter.Log($"[DlssPresetService.SetGlobalReBarEnableMode] Set mode={mode}");
             return true;
         }
@@ -367,7 +367,7 @@ if ($null -eq $profile) {{ exit 1 }}";
             }
 
             var doneFile = scriptPath + ".done";
-            if (File.Exists(doneFile)) try { File.Delete(doneFile); } catch { }
+            if (File.Exists(doneFile)) try { File.Delete(doneFile); } catch (Exception) { /* stale sentinel from a previous run; a leftover is harmless */ }
 
             var script = $@"
 Add-Type -Path '{nvApiPath.Replace("'", "''")}'
@@ -408,9 +408,9 @@ try {{
             {
                 var content = File.ReadAllText(doneFile).Trim();
                 exitCode = content == "0" ? 0 : 2;
-                try { File.Delete(doneFile); } catch { }
+                try { File.Delete(doneFile); } catch (Exception) { /* temp file in %TEMP%; a leftover is harmless */ }
             }
-            try { File.Delete(scriptPath); } catch { }
+            try { File.Delete(scriptPath); } catch (Exception) { /* temp file in %TEMP%; a leftover is harmless */ }
 
             // Reload session
             try
@@ -421,7 +421,7 @@ try {{
                     _cachedProfiles.TryAdd(p.Name, p);
                 InvalidateProfileLookupCache();
             }
-            catch { }
+            catch (Exception ex) { CrashReporter.Log($"[DlssPresetService.SetReBarSizeLimitViaPs] Driver session reload failed — {ex.Message}"); }
 
             if (profileName != null)
                 _rebarSizeLimitCache[profileName] = sizeBytes;
@@ -555,7 +555,7 @@ if ($null -ne $profile) {{
             process.WaitForExit(10000);
 
             // Clean up
-            try { File.Delete(scriptPath); } catch { }
+            try { File.Delete(scriptPath); } catch (Exception) { /* temp file in %TEMP%; a leftover is harmless */ }
 
             // Reload session to reflect changes made by the elevated process
             _session = DriverSettingsSession.CreateAndLoad();

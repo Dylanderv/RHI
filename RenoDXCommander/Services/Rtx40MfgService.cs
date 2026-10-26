@@ -70,7 +70,7 @@ public class Rtx40MfgService
                     File.Delete(f);
                 _crashReporter.Log("[Rtx40MfgService] Wiped legacy ASI staging — new RTXMFG.dll will be downloaded");
             }
-            catch { }
+            catch (Exception ex) { CrashReporter.Log($"[Rtx40MfgService] Failed to wipe legacy ASI staging — {ex.Message}"); }
         }
 
         // One-time migration: older builds wrote version.txt even when the release zip had no
@@ -309,7 +309,7 @@ public class Rtx40MfgService
                 foreach (var legacyFile in new[] { AsiFileName, "RTX40MFGCore.dll", "RTX40MFG-UI.addon64" })
                 {
                     var p = Path.Combine(installPath, legacyFile);
-                    try { if (File.Exists(p)) File.Delete(p); } catch { }
+                    try { if (File.Exists(p)) File.Delete(p); } catch (Exception ex) { CrashReporter.Log($"[Rtx40MfgService.Uninstall] Failed to delete legacy file — {ex.Message}"); }
                 }
             }
             _crashReporter.Log($"[Rtx40MfgService.Uninstall] Removed from '{installPath}'");

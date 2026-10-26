@@ -403,7 +403,7 @@ public partial class UltrawideFixService : IUltrawideFixService
                 if (File.Exists(cachePath))
                     return File.ReadAllText(cachePath);
             }
-            catch { }
+            catch (Exception ex2) { CrashReporter.Log($"[UltrawideFixService.FetchOrLoadCache] Stale cache read failed — {ex2.Message}"); }
 
             CrashReporter.Log($"[UltrawideFixService] {label} no cache available");
             return null;

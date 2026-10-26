@@ -276,11 +276,11 @@ public class PcgwService : IPcgwService
             LoadFromJson(json);
 
             // Persist JSON + ETag to disk for future 304 responses
-            try { await File.WriteAllTextAsync(CentralCachePath, json).ConfigureAwait(false); } catch { }
+            try { await File.WriteAllTextAsync(CentralCachePath, json).ConfigureAwait(false); } catch (Exception ex) { CrashReporter.Log($"[PcgwService.LoadCentralDataAsync] Failed to write disk cache — {ex.Message}"); }
             var newETag = resp.Headers.ETag?.Tag;
             if (!string.IsNullOrEmpty(newETag))
             {
-                try { File.WriteAllText(CentralETagPath, newETag); } catch { }
+                try { File.WriteAllText(CentralETagPath, newETag); } catch (Exception ex) { CrashReporter.Log($"[PcgwService.LoadCentralDataAsync] Failed to write ETag — {ex.Message}"); }
             }
 
             CrashReporter.Log($"[PcgwService.LoadCentralDataAsync] Downloaded and loaded {_centralData?.Games.Count ?? 0:N0} games, {_centralData?.NameOverrides.Count ?? 0} name overrides");
@@ -297,7 +297,7 @@ public class PcgwService : IPcgwService
                     LoadFromJson(cachedJson);
                     CrashReporter.Log($"[PcgwService.LoadCentralDataAsync] Loaded {_centralData?.Games.Count ?? 0:N0} games from disk cache (after error)");
                 }
-                catch { }
+                catch (Exception ex2) { CrashReporter.Log($"[PcgwService.LoadCentralDataAsync] Disk cache fallback failed — {ex2.Message}"); }
             }
         }
     }

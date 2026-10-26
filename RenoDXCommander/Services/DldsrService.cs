@@ -364,7 +364,7 @@ public class DldsrService : IDldsrService
                             return new DldsrMonitorCapture(mon.MonitorId, newValues);
                         }
                     }
-                    catch { }
+                    catch (Exception ex) { CrashReporter.Log($"[DldsrService.ApplyStateAsync] Malformed SmoothScalingData for monitor '{mon.MonitorId}' — {ex.Message}"); }
                     return mon;
                 }).ToList();
                 captureToApply = new DldsrCapture(capture.Label, capture.Time, capture.Driver, modifiedMonitors);
@@ -807,7 +807,7 @@ try {
                         if (smoothData.Length == 32)
                             monitorData.Add((mon.MonitorId, smoothData, multData));
                     }
-                    catch { }
+                    catch (Exception ex) { CrashReporter.Log($"[DldsrService.SetSmoothnessAsync] Malformed saved scaling data for monitor '{mon.MonitorId}' — {ex.Message}"); }
                 }
             }
 
