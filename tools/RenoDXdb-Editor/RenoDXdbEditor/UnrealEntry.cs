@@ -150,10 +150,10 @@ public class UnrealEntry : INotifyPropertyChanged
         ("Any Size",                  "Any Size"),
         // 0 — Off / HDR10 / no offset
         ("0 — Off / HDR10",           "0"),
-        // 1 — On / Auto / scRGB
-        ("1 — On / Auto / scRGB",     "1"),
-        // 2 — On (Compat) / Auto Upgrade / Gamma
-        ("2 — On Compat / Auto Upgrade / Gamma", "2"),
+        // 1 — On / Auto / scRGB / Gamma (Swapchain_Encoding labels are {"Linear", "Gamma"})
+        ("1 — On / Auto / scRGB / Gamma", "1"),
+        // 2 — On (Compat) / Auto Upgrade
+        ("2 — On Compat / Auto Upgrade", "2"),
         // 3 — Scaling Only (Blit Copy Hack)
         ("3 — Scaling Only",          "3"),
         // 4 — offset value
@@ -186,12 +186,17 @@ public class UnrealEntry : INotifyPropertyChanged
         }
         else
         {
-            // All pairs on one line (Unity format): consume backtick tokens in pairs
+            // All pairs on one line (Unity format): a key, optionally followed by a value.
+            // Keys can stand alone (`Upgrade_R11G11B10_FLOAT` `Use_Swapchain_Proxy` `1`),
+            // so only treat the next token as this key's value when it looks like a value —
+            // the same rule RHI uses when it reads these entries.
             var tokens = ParseBacktickTokens(Upgrades);
-            for (int i = 0; i < tokens.Count; i += 2)
+            for (int i = 0; i < tokens.Count; i++)
             {
                 var format = tokens[i];
-                var size   = i + 1 < tokens.Count ? tokens[i + 1] : "";
+                var size   = "";
+                if (i + 1 < tokens.Count && IsValueToken(tokens[i + 1]))
+                    size = tokens[++i];
                 result.Add((format, size));
             }
         }
@@ -211,6 +216,13 @@ public class UnrealEntry : INotifyPropertyChanged
             .ToList();
         return lines.Count == 0 ? null : string.Join(" ", lines);
     }
+
+    /// <summary>True for size words and plain numbers; anything else is a key.</summary>
+    private static bool IsValueToken(string token) =>
+        token.Equals("Output Size",  StringComparison.OrdinalIgnoreCase) ||
+        token.Equals("Output Ratio", StringComparison.OrdinalIgnoreCase) ||
+        token.Equals("Any Size",     StringComparison.OrdinalIgnoreCase) ||
+        (token.Length > 0 && token.All(char.IsDigit));
 
     private static List<string> ParseBacktickTokens(string s)
     {
