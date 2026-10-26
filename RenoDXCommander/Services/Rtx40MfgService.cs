@@ -8,9 +8,10 @@ using System.Threading.Tasks;
 namespace RenoDXCommander.Services;
 
 /// <summary>
-/// Manages the RTX 40 MFG Unlock component — staging, install, and uninstall.
-/// GitHub: dashdogy/RTX40MFG-Unlock. Deploys a single RTXMFG.dll renamed to a
-/// user-chosen proxy DLL name (e.g. version.dll, dinput8.dll).
+/// Manages the RTX 40 MFG Unlock component (upstream now "MFG Unlocker") — staging, install, and uninstall.
+/// GitHub: dashdogy/RTX40MFG-Unlock (renamed to dashdogy/MFG-Unlocker; the old URL redirects).
+/// Deploys a single DLL renamed to a user-chosen proxy DLL name (e.g. version.dll, dinput8.dll).
+/// Releases ship it as MFGUnlocker.dll (v1.5+) or RTXMFG.dll (older); it is always staged as RTXMFG.dll.
 /// </summary>
 public class Rtx40MfgService
 {
@@ -22,6 +23,16 @@ public class Rtx40MfgService
 
     /// <summary>Legacy filename — only used for migration detection.</summary>
     public const string AsiFileName   = "RTX40MFG.asi";
+
+    /// <summary>DLL names accepted from a release zip, newest naming first.</summary>
+    private static readonly string[] ReleaseDllNames = { "MFGUnlocker.dll", StagedDllName };
+
+    /// <summary>
+    /// Written after a verified extraction. Staging without it came from a build that could
+    /// record a new version without extracting the DLL (MFGUnlocker.dll rename), so it is re-downloaded once.
+    /// </summary>
+    private const string StagingFormatFile = "staging_format.txt";
+    private const string StagingFormat     = "2";
 
     /// <summary>All valid proxy DLL names that RTXMFG.dll may be deployed as.</summary>
     public static readonly string[] KnownProxyNames =
@@ -60,6 +71,22 @@ public class Rtx40MfgService
                 _crashReporter.Log("[Rtx40MfgService] Wiped legacy ASI staging — new RTXMFG.dll will be downloaded");
             }
             catch { }
+        }
+
+        // One-time migration: older builds wrote version.txt even when the release zip had no
+        // RTXMFG.dll (upstream renamed it to MFGUnlocker.dll), so the staged DLL can be older than
+        // version.txt claims. Drop version.txt (keep the DLL so installs still work) to force one re-download.
+        if (File.Exists(_versionFile) && !File.Exists(Path.Combine(_stagingDir, StagingFormatFile)))
+        {
+            try
+            {
+                File.Delete(_versionFile);
+                _crashReporter.Log("[Rtx40MfgService] Staging predates format 2 — version cleared to force a fresh download");
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                _crashReporter.Log($"[Rtx40MfgService] Could not clear stale version file — {ex.Message}");
+            }
         }
     }
 
@@ -102,24 +129,33 @@ public class Rtx40MfgService
             var bytes = await _http.GetByteArrayAsync(downloadUrl).ConfigureAwait(false);
             using var zip = new ZipArchive(new MemoryStream(bytes), ZipArchiveMode.Read);
 
-            foreach (var entry in zip.Entries)
+            ZipArchiveEntry? dllEntry = null;
+            foreach (var wanted in ReleaseDllNames)
             {
-                var name = Path.GetFileName(entry.FullName);
-                if (string.IsNullOrEmpty(name)) continue;
-
-                if (name.Equals(StagedDllName, StringComparison.OrdinalIgnoreCase))
-                {
-                    var dest = Path.Combine(_stagingDir, StagedDllName);
-                    using var src = entry.Open();
-                    using var dst = File.Create(dest);
-                    await src.CopyToAsync(dst).ConfigureAwait(false);
-                    break;
-                }
+                dllEntry = zip.Entries.FirstOrDefault(e =>
+                    Path.GetFileName(e.FullName).Equals(wanted, StringComparison.OrdinalIgnoreCase));
+                if (dllEntry != null) break;
             }
 
+            if (dllEntry == null)
+            {
+                // Don't record the new version — the staged DLL would not match it
+                _crashReporter.Log($"[Rtx40MfgService.EnsureStaging] {version} zip has none of [{string.Join(", ", ReleaseDllNames)}] — keeping staged {StagedVersion ?? "(none)"}");
+                return;
+            }
+
+            // Extract to a temp file first so a failed write never leaves a half-written staged DLL
+            var dest = Path.Combine(_stagingDir, StagedDllName);
+            var temp = dest + ".tmp";
+            using (var src = dllEntry.Open())
+            using (var dst = File.Create(temp))
+                await src.CopyToAsync(dst).ConfigureAwait(false);
+            File.Move(temp, dest, overwrite: true);
+
             File.WriteAllText(_versionFile, version);
+            File.WriteAllText(Path.Combine(_stagingDir, StagingFormatFile), StagingFormat);
             HasUpdate = false;
-            _crashReporter.Log($"[Rtx40MfgService.EnsureStaging] Staged {version}");
+            _crashReporter.Log($"[Rtx40MfgService.EnsureStaging] Staged {version} from '{dllEntry.FullName}'");
         }
         catch (Exception ex)
         {
@@ -187,6 +223,47 @@ public class Rtx40MfgService
     }
 
     // ── Install ───────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// True when the game's installed copy exists and differs from the staged DLL.
+    /// Used to push updates by content rather than by the HasUpdate flag, so games
+    /// that missed an update (e.g. the game was running) are caught up next time.
+    /// </summary>
+    public bool IsOutdatedIn(string installPath, string installedAs)
+    {
+        var src  = Path.Combine(_stagingDir, StagedDllName);
+        var dest = Path.Combine(installPath, installedAs);
+        try
+        {
+            if (!File.Exists(src) || !File.Exists(dest)) return false;
+            if (new FileInfo(src).Length != new FileInfo(dest).Length) return true;
+            return !File.ReadAllBytes(src).AsSpan().SequenceEqual(File.ReadAllBytes(dest));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _crashReporter.Log($"[Rtx40MfgService.IsOutdatedIn] Could not compare '{dest}' — {ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Copies the staged DLL into every listed game whose copy is outdated. Returns how many were updated.
+    /// </summary>
+    public int UpdateInstalledGames(IEnumerable<(string InstallPath, string InstalledAs)> installs)
+    {
+        if (!IsStagingReady) return 0;
+        int updated = 0;
+        foreach (var (installPath, installedAs) in installs)
+        {
+            if (!IsOutdatedIn(installPath, installedAs)) continue;
+            if (Install(installPath, installedAs))
+            {
+                updated++;
+                _crashReporter.Log($"[Rtx40MfgService.UpdateInstalledGames] Updated '{installedAs}' in '{installPath}' to {StagedVersion}");
+            }
+        }
+        return updated;
+    }
 
     /// <summary>
     /// Deploys RTXMFG.dll to the game folder renamed to <paramref name="dllName"/>.

@@ -787,6 +787,19 @@ public partial class MainViewModel
         return null;
     }
 
+    /// <summary>(InstallPath, InstalledAs) for every game card with RTX 40 MFG installed.</summary>
+    private List<(string InstallPath, string InstalledAs)> GetRtx40MfgInstalls()
+    {
+        var installs = new List<(string, string)>();
+        foreach (var c in _allCards.ToList())
+        {
+            if (string.IsNullOrEmpty(c.InstallPath)) continue;
+            var installedAs = GetRtx40MfgInstalledAs(c.GameName, c.Source ?? "");
+            if (!string.IsNullOrEmpty(installedAs)) installs.Add((c.InstallPath, installedAs));
+        }
+        return installs;
+    }
+
     public void SetRtx40MfgInstalledAs(string gameName, string? dllName, string store = "")
     {
         var key = GameKey.From(gameName, store).ToKey();

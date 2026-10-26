@@ -1182,16 +1182,8 @@ public partial class MainViewModel
                 {
                     await _rtx40MfgService.CheckForUpdateAsync(forceRefresh: true);
                     if (_rtx40MfgService.HasUpdate)
-                    {
                         await _rtx40MfgService.EnsureStagingAsync();
-                        if (_rtx40MfgService.IsStagingReady)
-                            foreach (var c in _allCards.Where(c => !string.IsNullOrEmpty(c.InstallPath)))
-                            {
-                                var installedAs = GetRtx40MfgInstalledAs(c.GameName, c.Source ?? "");
-                                if (!string.IsNullOrEmpty(installedAs) && File.Exists(Path.Combine(c.InstallPath!, installedAs)))
-                                    _rtx40MfgService.Install(c.InstallPath!, installedAs);
-                            }
-                    }
+                    _rtx40MfgService.UpdateInstalledGames(GetRtx40MfgInstalls());
                 }
                 catch (Exception ex) { _crashReporter.Log($"[MainViewModel] Periodic RTX40MFG check failed — {ex.Message}"); }
 

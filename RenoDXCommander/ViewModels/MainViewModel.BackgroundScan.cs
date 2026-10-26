@@ -150,12 +150,19 @@ public partial class MainViewModel
                 try { await _dofFixService.EnsureStagingAsync(); }
                 catch (Exception ex) { _crashReporter.Log($"[RunBackgroundScanAndMergeAsync] DOF Fix staging task failed — {ex.Message}"); }
             });
+            // EnsureStagingAsync clears HasUpdate, so remember whether an update was staged
+            // for the deploy step after the scan (it used to check HasUpdate and never fired).
+            bool nrCostScalerUpdated = false, dlssg2030Updated = false;
             var nrCostScalerTask = Task.Run(async () => {
                 try
                 {
                     await _nrCostScalerService.CheckForUpdateAsync(forceRefresh: true);
                     if (!_nrCostScalerService.IsStagingReady || _nrCostScalerService.HasUpdate)
+                    {
+                        bool hadUpdate = _nrCostScalerService.HasUpdate;
                         await _nrCostScalerService.EnsureStagingAsync();
+                        nrCostScalerUpdated = hadUpdate && _nrCostScalerService.IsStagingReady;
+                    }
                 }
                 catch (Exception ex) { _crashReporter.Log($"[RunBackgroundScanAndMergeAsync] NR Cost Scaler staging failed — {ex.Message}"); }
             });
@@ -173,7 +180,11 @@ public partial class MainViewModel
                 {
                     await _dlssg2030Service.CheckForUpdateAsync();
                     if (!_dlssg2030Service.IsStagingReady || _dlssg2030Service.HasUpdate)
+                    {
+                        bool hadUpdate = _dlssg2030Service.HasUpdate;
                         await _dlssg2030Service.EnsureStagingAsync();
+                        dlssg2030Updated = hadUpdate && _dlssg2030Service.IsStagingReady;
+                    }
                 }
                 catch (Exception ex) { _crashReporter.Log($"[RunBackgroundScanAndMergeAsync] Dlssg2030 staging failed — {ex.Message}"); }
             });
@@ -447,16 +458,13 @@ public partial class MainViewModel
                     if (_nrCostScalerService.IsStagingReady)
                         foreach (var c in _allCards.Where(c => !string.IsNullOrEmpty(c.InstallPath)
                             && DlssNrCostScalerService.IsInstalled(c.InstallPath)
-                            && _nrCostScalerService.HasUpdate))
+                            && nrCostScalerUpdated))
                             _nrCostScalerService.Install(c.InstallPath);
-                    if (_rtx40MfgService.IsStagingReady && _rtx40MfgService.HasUpdate)
-                        foreach (var c in _allCards.Where(c => !string.IsNullOrEmpty(c.InstallPath)))
-                        {
-                            var installedAs = GetRtx40MfgInstalledAs(c.GameName, c.Source ?? "");
-                            if (!string.IsNullOrEmpty(installedAs) && File.Exists(Path.Combine(c.InstallPath!, installedAs)))
-                                _rtx40MfgService.Install(c.InstallPath!, installedAs);
-                        }
-                    if (_dlssg2030Service.IsStagingReady && _dlssg2030Service.HasUpdate)
+                    // Compare file contents rather than HasUpdate: EnsureStagingAsync clears HasUpdate
+                    // after downloading, so a flag check here never fired. This also catches up games
+                    // that missed an earlier update (e.g. game was running).
+                    _rtx40MfgService.UpdateInstalledGames(GetRtx40MfgInstalls());
+                    if (_dlssg2030Service.IsStagingReady && dlssg2030Updated)
                         foreach (var c in _allCards.Where(c => !string.IsNullOrEmpty(c.InstallPath)))
                         {
                             var installedAs = GetDlssg2030InstalledAs(c.GameName, c.Source ?? "");
