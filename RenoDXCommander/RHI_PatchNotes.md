@@ -15,6 +15,7 @@ To connect: open **Settings → GitHub API** and click **Sign in with GitHub**. 
 ### Manifest Updates
 
 - Added DLSS SR / RR / FG 310.9.16 and Streamline 2.14.16.0.
+- Added Streamline 2.14.16.0-v2 (NVIDIA's updated build of 2.14.16.0).
 - Added DLSS FG Preset C.
 - Added Depth3D Cursor Add-on as a managed addon.
 
