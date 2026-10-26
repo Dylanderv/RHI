@@ -151,6 +151,13 @@ paths:
 ### Vulkan ReShade False Update
 - Add `.Where(c => !c.RequiresVulkanInstall)` to `auxInstalled` filter
 
+### Pushing component updates into game folders
+- `EnsureStagingAsync()` sets `HasUpdate = false` after a successful download. Never gate the "copy into games" step on `HasUpdate` after staging has run — it is always false by then (this broke RTX 40 MFG, NR Cost Scaler and DLSSG 20/30 startup deploys). Capture the flag before staging, or better, compare the game copy with staging.
+- Prefer content/size+mtime comparison over "update happened this session": a copy that fails (game running) is then retried on the next launch. `File.Copy` preserves the source's modified time, so size + `LastWriteTimeUtc` identifies an outdated RHI-made copy cheaply.
+- Never re-create a tracked file that no longer exists in the game folder — the user removed it.
+- Components that copy addons directly must call `AddonPackService.TrackAddonDeployment` / `UntrackAddonDeployment`.
+- Upstream release asset/file names change (RTX 40 MFG: `RTXMFG.dll` → `MFGUnlocker.dll`). Never record a new staged version unless the expected file was actually extracted.
+
 ### Periodic Timer
 - `System.Threading.Timer` every 4 hours after initial scan completes
 - Re-fetches manifests, forces update check, triggers app version check
