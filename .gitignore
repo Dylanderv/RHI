@@ -41,3 +41,6 @@ docs/ui-freeze-audit-report.md
 docs/ui-freeze-fix-tasks.md
 docs/ui-polish-fix-tasks.md
 OptiScaler-DLSSNR-v*/
+
+# Claude Code personal settings (shared .claude/settings.json is committed)
+.claude/settings.local.json
