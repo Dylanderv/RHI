@@ -4,6 +4,22 @@
 
 To connect: open **Settings → GitHub API** and click **Sign in with GitHub**. Takes about 30 seconds. Or paste a Personal Access Token (PAT) — no scopes needed, just generate one at [github.com/settings/tokens](https://github.com/settings/tokens) and paste it in.
 
+## v2.8.8
+
+### Bug Fixes
+
+**DLSS / Streamline version display**
+- Fixed swapping to an older DLSS or Streamline version showing the newer version number in the UI immediately after the swap. The background scan running concurrently could capture the pre-swap version and overwrite the display on merge. The merge now re-reads versions from disk so the displayed version always reflects what's actually installed.
+- Fixed the version dropdown showing the wrong entry when an installed version string is a prefix of another (e.g. 310.9.1 was matching 310.9.16 because of a StartsWith check in the item lookup). Now uses exact matching.
+
+### Manifest Updates
+
+- Added DLSS SR / RR / FG 310.9.16 and Streamline 2.14.16.0.
+- Added DLSS FG Preset C.
+- Added Depth3D Cursor Add-on as a managed addon.
+
+---
+
 ## v2.8.7
 
 ### New

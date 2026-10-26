@@ -798,7 +798,12 @@ public partial class MainViewModel
 
                     // ── DLSS / Streamline fields ─────────────────────────────
                     if (f.DlssDetection != null)
+                    {
                         e.ApplyDlssDetection(f.DlssDetection);
+                        // Re-read versions from disk so a user swap that happened during the scan
+                        // isn't overwritten by the stale pre-swap version captured in f.DlssDetection.
+                        e.RefreshDlssVersions(_dlssStreamlineService);
+                    }
                 });
             }
             else

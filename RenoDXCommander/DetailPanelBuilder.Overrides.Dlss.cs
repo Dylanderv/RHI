@@ -88,10 +88,12 @@ public partial class DetailPanelBuilder
                 bool matched = false;
                 for (int i = 0; i < items.Count; i++)
                 {
-                    var itemBase = items[i].Replace(" (Default)", "");
-                    if (installedVersion.Equals(itemBase, StringComparison.OrdinalIgnoreCase)
-                        || itemBase.StartsWith(installedVersion, StringComparison.OrdinalIgnoreCase)
-                        || installedVersion.StartsWith(itemBase, StringComparison.OrdinalIgnoreCase))
+                    // Strip the "(Default)" suffix if present for comparison
+                    var itemBase = items[i];
+                    if (itemBase.StartsWith("Default (", StringComparison.OrdinalIgnoreCase))
+                        itemBase = itemBase.Substring("Default (".Length).TrimEnd(')');
+
+                    if (installedVersion.Equals(itemBase, StringComparison.OrdinalIgnoreCase))
                     {
                         selectedIndex = i;
                         matched = true;
