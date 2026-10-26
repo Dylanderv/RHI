@@ -67,6 +67,7 @@ To connect: open **Settings → GitHub API** and click **Sign in with GitHub**. 
 - Added DLSS NR 310.9.16.
 - Added DLSS FG Preset C.
 - Added Depth3D Cursor Add-on as a managed addon.
+- Added engine version for Valor Mortis (Unreal Engine 5.7.3).
 
 ---
 
