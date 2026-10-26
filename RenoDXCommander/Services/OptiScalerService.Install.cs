@@ -1064,7 +1064,8 @@ public partial class OptiScalerService
                 else ClearStaging();
             }
 
-            bool stagingReady = isDlssNr ? IsStagingReadyDlssNr
+            bool stagingReady = isF5 ? IsStagingReadyF5
+                : isDlssNr ? IsStagingReadyDlssNr
                 : isNightly ? (effectiveNightlyBuild != null ? IsNightlyBuildStaged(effectiveNightlyBuild) : IsStagingReadyNightly)
                 : IsStagingReady;
             if (!stagingReady)
@@ -1084,7 +1085,8 @@ public partial class OptiScalerService
                         effectiveStagingDir = GetNightlyBuildDir(effectiveNightlyBuild);
                 }
                 else await EnsureStagingAsync(progress);
-                stagingReady = isDlssNr ? IsStagingReadyDlssNr
+                stagingReady = isF5 ? IsStagingReadyF5
+                    : isDlssNr ? IsStagingReadyDlssNr
                     : isNightly ? (effectiveNightlyBuild != null ? IsNightlyBuildStaged(effectiveNightlyBuild) : IsStagingReadyNightly)
                     : IsStagingReady;
                 if (!stagingReady)
@@ -1323,16 +1325,18 @@ public partial class OptiScalerService
             if (record != null)
             {
                 record.InstalledAt = DateTime.UtcNow;
-                record.OsVariant = isNightly ? "Nightly" : null;
+                // Same rule as InstallAsync: Stable is stored as null, every other variant by name
+                record.OsVariant = variant.Equals("Stable", StringComparison.OrdinalIgnoreCase) ? null : variant;
                 record.OsNightlyBuild = isNightly ? effectiveNightlyBuild : null;
                 _auxInstaller.SaveAuxRecord(record);
                 CrashReporter.Log($"[OptiScalerService.UpdateAsync] Updated tracking record for {card.GameName}");
             }
 
             // ── 6. Update card VM properties ─────────────────────────────────
-            card.OsInstalledVersion = isDlssNr ? StagedVersionDlssNr : isNightly ? StagedVersionNightly : StagedVersion;
+            card.OsInstalledVersion = isF5 ? StagedVersionF5 : isDlssNr ? StagedVersionDlssNr : isNightly ? StagedVersionNightly : StagedVersion;
             card.OsStatus = GameStatus.Installed;
-            if (isDlssNr) HasUpdateDlssNr = false;
+            if (isF5) HasUpdateF5 = false;
+            else if (isDlssNr) HasUpdateDlssNr = false;
             else if (isNightly) HasUpdateNightly = false;
             else HasUpdate = false;
 
@@ -1382,12 +1386,11 @@ public partial class OptiScalerService
                 }
                 manifestFolders.Add("plugins");
 
-                var variantStr = isDlssNr ? "DlssNr" : isNightly ? "Nightly" : "Stable";
                 var existingForUpdate = RhiInstallManifest.Read(gameDir);
                 RhiInstallManifest.Write(gameDir, new RhiInstallManifest
                 {
                     Component   = AddonType,
-                    Variant     = variantStr,
+                    Variant     = variant,
                     Version     = updatedVersion ?? "",
                     InstalledAs = installedDll,
                     InstalledAt = DateTime.UtcNow,
@@ -1404,7 +1407,8 @@ public partial class OptiScalerService
         }
         catch (Exception ex)
         {
-            CrashReporter.Log($"[OptiScalerService.UpdateAsync] {card.GameName} — {ex.Message}");
+            // Type + stack included: some failures here (e.g. WinUI COM errors) have an empty Message
+            CrashReporter.Log($"[OptiScalerService.UpdateAsync] {card.GameName} — {ex.GetType().Name} (0x{ex.HResult:X8}): {ex.Message}\n{ex.StackTrace}");
             progress?.Report(($"Update failed: {ex.Message}", 0));
         }
     }
