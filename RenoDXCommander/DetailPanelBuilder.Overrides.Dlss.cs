@@ -159,6 +159,18 @@ public partial class DetailPanelBuilder
                 else
                     await onVersionSelected(selected);
             }
+            catch (DlssSwapException ex)
+            {
+                CrashReporter.Log($"[DetailPanelBuilder.BuildDlssColumn] {label} swap to '{selected}' failed — {ex.Message}");
+                // Put the dropdown back to what is actually on disk
+                if (ev.RemovedItems.Count > 0)
+                {
+                    versionInit = true;
+                    versionCombo.SelectedItem = ev.RemovedItems[0];
+                    versionInit = false;
+                }
+                await ShowDlssSwapErrorAsync(ex.Message);
+            }
             finally
             {
                 versionCombo.IsEnabled = isPresent || (onDriverOverrideToggled != null);
@@ -328,5 +340,19 @@ public partial class DetailPanelBuilder
         };
         Grid.SetColumn(divider, column);
         return divider;
+    }
+
+    /// <summary>Tells the user why a DLSS / Streamline swap couldn't be applied.</summary>
+    private async Task ShowDlssSwapErrorAsync(string message)
+    {
+        var xamlRoot = _window.Content?.XamlRoot;
+        if (xamlRoot == null) return;
+        await DialogService.ShowSafeAsync(new ContentDialog
+        {
+            Title = "Couldn't change DLSS files",
+            Content = new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap },
+            CloseButtonText = "OK",
+            XamlRoot = xamlRoot,
+        });
     }
 }

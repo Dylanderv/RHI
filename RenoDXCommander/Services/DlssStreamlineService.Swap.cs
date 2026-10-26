@@ -159,6 +159,9 @@ public partial class DlssStreamlineService
             return;
         }
 
+        if (!Directory.Exists(gameFolder))
+            throw DlssSwapException.From(gameFolder, new DirectoryNotFoundException($"Folder not found: '{gameFolder}'"));
+
         // Before replacing, ensure game-original files are backed up to appdata
         // This gives us a fallback if the in-game .original backups are lost
         BackupStreamlineToAppData(gameFolder);
@@ -174,7 +177,15 @@ public partial class DlssStreamlineService
             {
                 // Plain overwrite — no .original backups. Streamline in OptiScaler\Streamline\ is
                 // always RHI-managed, never a game original. AppData zip backup covers restore.
-                File.Copy(cachedDllPath, gameDllPath, overwrite: true);
+                try
+                {
+                    File.Copy(cachedDllPath, gameDllPath, overwrite: true);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    CrashReporter.Log($"[DlssStreamlineService.SwapStreamlineAsync] Failed to write '{gameDllPath}' after {replaced} file(s) — {ex.GetType().Name}: {ex.Message}");
+                    throw DlssSwapException.From(gameDllPath, ex);
+                }
                 replaced++;
             }
         }
@@ -216,6 +227,9 @@ public partial class DlssStreamlineService
             return;
         }
 
+        if (!Directory.Exists(gameFolder))
+            throw DlssSwapException.From(gameFolder, new DirectoryNotFoundException($"Folder not found: '{gameFolder}'"));
+
         // Back up original files to AppData before replacing
         BackupStreamlineToAppData(gameFolder);
 
@@ -228,7 +242,15 @@ public partial class DlssStreamlineService
             if (File.Exists(gameDllPath) && File.Exists(customDllPath))
             {
                 // Plain overwrite — no .original backups. AppData zip backup covers restore.
-                File.Copy(customDllPath, gameDllPath, overwrite: true);
+                try
+                {
+                    File.Copy(customDllPath, gameDllPath, overwrite: true);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    CrashReporter.Log($"[DlssStreamlineService.SwapStreamlineCustomAsync] Failed to write '{gameDllPath}' after {replaced} file(s) — {ex.GetType().Name}: {ex.Message}");
+                    throw DlssSwapException.From(gameDllPath, ex);
+                }
                 replaced++;
             }
         }
@@ -371,15 +393,56 @@ public partial class DlssStreamlineService
 
     /// <summary>
     /// Backs up the target file (if no backup exists) and replaces it with the source.
+    /// Throws <see cref="DlssSwapException"/> if the game folder can't be written to.
+    /// On failure the game's original DLL is put back, so the game is never left without one.
     /// </summary>
     private void BackupAndReplace(string targetPath, string sourcePath)
     {
+        // The detected path can be stale (game moved/updated — WindowsApps paths change
+        // version on every update). Check before touching anything.
+        var dir = Path.GetDirectoryName(targetPath);
+        if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir))
+            throw DlssSwapException.From(targetPath, new DirectoryNotFoundException($"Folder not found: '{dir}'"));
+
+        var backup = targetPath + BackupExtension;
+        bool hadBackup = File.Exists(backup);
+
         // SentinelBackup handles all three cases:
         //   file exists, no .original  → real backup (File.Move)
         //   file exists, .original exists → no-op (preserve existing backup)
         //   file absent → 0-byte sentinel so Restore knows to clean up entirely
         AuxInstallService.SentinelBackup(targetPath);
-        File.Copy(sourcePath, targetPath, overwrite: true);
+        try
+        {
+            File.Copy(sourcePath, targetPath, overwrite: true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            if (!hadBackup) UndoBackup(targetPath, backup);
+            CrashReporter.Log($"[DlssStreamlineService.BackupAndReplace] Failed to write '{targetPath}' — {ex.GetType().Name}: {ex.Message}");
+            throw DlssSwapException.From(targetPath, ex);
+        }
+    }
+
+    /// <summary>
+    /// Reverses a backup made moments ago by <see cref="AuxInstallService.SentinelBackup"/>
+    /// after the replacement copy failed: moves the original back, or removes the 0-byte sentinel.
+    /// </summary>
+    private static void UndoBackup(string targetPath, string backup)
+    {
+        try
+        {
+            if (!File.Exists(backup) || File.Exists(targetPath)) return;
+            if (new FileInfo(backup).Length > 0)
+                File.Move(backup, targetPath);
+            else
+                File.Delete(backup);
+            CrashReporter.Log($"[DlssStreamlineService.UndoBackup] Restored original after failed swap: '{targetPath}'");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            CrashReporter.Log($"[DlssStreamlineService.UndoBackup] Could not restore '{targetPath}' — {ex.Message}");
+        }
     }
 
     /// <summary>
