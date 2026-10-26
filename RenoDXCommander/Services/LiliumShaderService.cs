@@ -311,33 +311,9 @@ public class LiliumShaderService : ILiliumShaderService
 
     // ── Settings persistence ──────────────────────────────────────────────────────
 
-    private static readonly string SettingsPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "RHI", "settings.json");
+    private string? LoadStoredVersion() =>
+        SettingsFile.Snapshot().TryGetValue(SettingsKey, out var v) ? v : null;
 
-    private string? LoadStoredVersion()
-    {
-        try
-        {
-            if (!File.Exists(SettingsPath)) return null;
-            var d = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(SettingsPath));
-            return d != null && d.TryGetValue(SettingsKey, out var v) ? v : null;
-        }
-        catch (Exception ex) { CrashReporter.Log($"[LiliumShaderService.LoadStoredVersion] Failed to load stored version — {ex.Message}"); return null; }
-    }
-
-    private void SaveStoredVersion(string version)
-    {
-        try
-        {
-            Dictionary<string, string> d = new();
-            if (File.Exists(SettingsPath))
-                d = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(SettingsPath))
-                    ?? new();
-            d[SettingsKey] = version;
-            Directory.CreateDirectory(Path.GetDirectoryName(SettingsPath)!);
-            File.WriteAllText(SettingsPath, JsonSerializer.Serialize(d, new JsonSerializerOptions { WriteIndented = true }));
-        }
-        catch (Exception ex) { CrashReporter.Log($"[LiliumShaderService.SaveStoredVersion] Failed to save version — {ex.Message}"); }
-    }
+    private void SaveStoredVersion(string version) =>
+        SettingsFile.Update(d => d[SettingsKey] = version, "LiliumShaderService.SaveStoredVersion");
 }

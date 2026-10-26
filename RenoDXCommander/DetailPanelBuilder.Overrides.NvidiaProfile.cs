@@ -659,7 +659,7 @@ public partial class DetailPanelBuilder
                 null,
                 originalVersion: card.DlssDetection?.OriginalStreamlineVersion);
 
-            int slColumn = FeatureFlags.DlssNr ? 6 : 6;
+            int slColumn = 6; // after SR, RR, FG, MFG, NR and their spacers
 
             // Add Restore All button into the SL column (fills the preset slot)
             // Enabled when any backup exists OR any preset is non-default

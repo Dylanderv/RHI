@@ -289,12 +289,16 @@ public partial class App : Application
         // stripped the token, but by then all requests were already in-flight with a bad header.
         await ApplyStoredGitHubTokenAsync();
 
-        // Check if first-launch setup is needed
         // Check if first-launch setup is needed.
-        // Skip if settings.json already exists with content — that's an existing user.
-        var rawSettings = SettingsViewModel.LoadSettingsFile();
+        // Only a missing settings file means a first launch. A corrupt or locked file is an
+        // existing user (SettingsFile restores corrupt files from .bak) — showing setup there
+        // would overwrite their settings.
+        var rawSettings = SettingsViewModel.LoadSettingsFile(out var settingsStatus);
         bool setupDone = rawSettings.Count > 0
+            || settingsStatus != SafeJsonFile.LoadStatus.Missing
             || (rawSettings.TryGetValue("FirstLaunchSetupDone", out var fls) && fls == "true");
+        if (settingsStatus != SafeJsonFile.LoadStatus.Ok && settingsStatus != SafeJsonFile.LoadStatus.Missing)
+            CrashReporter.Log($"[App.OnLaunched] Settings load status: {settingsStatus}");
 
         if (!setupDone)
         {
@@ -302,14 +306,16 @@ public partial class App : Application
             var setupWindow = new SetupWindow();
             setupWindow.OnComplete = (manageReShade) =>
             {
-                rawSettings["FirstLaunchSetupDone"] = "true";
-                if (!manageReShade)
+                SettingsViewModel.UpdateSettingsFile(s =>
                 {
-                    rawSettings["GlobalSkipRsUpdates"] = "true";
-                    rawSettings["CacheAllShaders"] = "false";
-                    rawSettings["GlobalShadersOff"] = "true";
-                }
-                SettingsViewModel.SaveSettingsFile(rawSettings);
+                    s["FirstLaunchSetupDone"] = "true";
+                    if (!manageReShade)
+                    {
+                        s["GlobalSkipRsUpdates"] = "true";
+                        s["CacheAllShaders"] = "false";
+                        s["GlobalShadersOff"] = "true";
+                    }
+                }, "App.OnLaunched.SetupComplete");
                 CrashReporter.Log($"[App.OnLaunched] Setup complete — manageReShade={manageReShade}");
 
                 setupWindow.AppWindow.Hide();
@@ -491,9 +497,11 @@ public partial class App : Application
                 {
                     tokenValid = false;
                     CrashReporter.Log("[App.ApplyStoredGitHubToken] Token is expired or revoked (401) — clearing from settings");
-                    settings.Remove("GitHubOAuthToken");
-                    settings.Remove("GitHubUsername");
-                    SettingsViewModel.SaveSettingsFile(settings);
+                    SettingsViewModel.UpdateSettingsFile(s =>
+                    {
+                        s.Remove("GitHubOAuthToken");
+                        s.Remove("GitHubUsername");
+                    }, "App.ApplyStoredGitHubToken");
                     // Flag for the window to show a re-auth notice once it opens
                     _gitHubTokenExpiredOnStartup = true;
                 }

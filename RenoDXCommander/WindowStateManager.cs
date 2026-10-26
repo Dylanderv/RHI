@@ -223,19 +223,9 @@ public class WindowStateManager
             // Try to get the configured watch folder from settings
             try
             {
-                var settingsPath = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "RHI", "settings.json");
-                if (File.Exists(settingsPath))
-                {
-                    var json = File.ReadAllText(settingsPath);
-                    var doc = System.Text.Json.JsonDocument.Parse(json);
-                    if (doc.RootElement.TryGetProperty("AddonWatchFolder", out var awf))
-                    {
-                        var custom = awf.GetString();
-                        if (!string.IsNullOrWhiteSpace(custom)) watchFolder = custom;
-                    }
-                }
+                if (RenoDXCommander.Services.SettingsFile.Snapshot().TryGetValue("AddonWatchFolder", out var custom)
+                    && !string.IsNullOrWhiteSpace(custom))
+                    watchFolder = custom;
             }
             catch (Exception ex) { CrashReporter.Log($"[WindowStateManager.LaunchDropHelper] Failed to read AddonWatchFolder from settings, using default — {ex.Message}"); }
             File.WriteAllText(hwndFile, $"{_hwnd.ToInt64()}\n{watchFolder}");

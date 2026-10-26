@@ -382,9 +382,7 @@ public partial class ShaderPackService
                 return false;
 
             // All files verified — write timestamp to cache
-            var dCopy = new Dictionary<string, string>(d);
-            dCopy[CacheTimestampKey(packId)] = currentTimestamp;
-            try { WriteSettings(dCopy); }
+            try { SettingsFile.Update(s => s[CacheTimestampKey(packId)] = currentTimestamp, "ShaderPackService.PackHasExtractedFiles"); }
             catch (Exception ex) { CrashReporter.Log($"[ShaderPackService.PackHasExtractedFiles] Failed to save cache timestamp for '{packId}' — {ex.Message}"); }
 
             return true;
@@ -453,13 +451,11 @@ public partial class ShaderPackService
             }
             } // end else (archive recording)
 
-            Dictionary<string, string> d = new();
             await _settingsLock.WaitAsync().ConfigureAwait(false);
             try
             {
-                d = new Dictionary<string, string>(ReadSettings());
-                d[FileListKey(packId)] = JsonSerializer.Serialize(files);
-                WriteSettings(d);
+                SettingsFile.Update(d => d[FileListKey(packId)] = JsonSerializer.Serialize(files),
+                    "ShaderPackService.RecordExtractedFiles");
             }
             finally { _settingsLock.Release(); }
         }
@@ -535,53 +531,14 @@ public partial class ShaderPackService
 
     // ── Settings persistence ──────────────────────────────────────────────────────
 
-    private static readonly string SettingsPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "RHI", "settings.json");
+    // Shader pack records live in the shared settings.json. Reads use SettingsFile's snapshot
+    // (re-read only when the file changes); writes use SettingsFile.Update so they never
+    // overwrite keys other services saved in the meantime.
 
-    /// <summary>Serializes all settings.json reads and writes to prevent concurrent access errors.</summary>
+    /// <summary>Keeps this service's read-modify-write sequences in order (async callers).</summary>
     private static readonly SemaphoreSlim _settingsLock = new(1, 1);
 
-    /// <summary>In-memory cache of settings.json — loaded once on first read, invalidated on every write.</summary>
-    private static Dictionary<string, string>? _settingsCache;
-
-    /// <summary>Reads the settings dict — uses in-memory cache, only hits disk when cache is cold.</summary>
-    private static Dictionary<string, string> ReadSettings()
-    {
-        if (_settingsCache != null) return _settingsCache;
-        try
-        {
-            if (!File.Exists(SettingsPath)) return _settingsCache = new();
-            _settingsCache = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(SettingsPath)) ?? new();
-            return _settingsCache;
-        }
-        catch { return _settingsCache = new(); }
-    }
-
-    /// <summary>Writes the settings dict to disk and updates the in-memory cache.</summary>
-    private static void WriteSettings(Dictionary<string, string> d)
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(SettingsPath)!);
-        // Retry up to 3 times — settings.json can be momentarily locked
-        // by another process (e.g. back-to-back installs both writing exclusions at once).
-        // No Thread.Sleep — the debounced save in GameNameService will retry on the next tick.
-        for (int attempt = 0; attempt < 3; attempt++)
-        {
-            try
-            {
-                File.WriteAllText(SettingsPath, JsonSerializer.Serialize(d, new JsonSerializerOptions { WriteIndented = true }));
-                _settingsCache = d;
-                return;
-            }
-            catch (IOException ex) when (attempt < 2)
-            {
-                CrashReporter.Log($"[ShaderPackService.WriteSettings] Attempt {attempt + 1} failed — {ex.Message}");
-            }
-        }
-        // Final attempt — let it throw if still locked
-        File.WriteAllText(SettingsPath, JsonSerializer.Serialize(d, new JsonSerializerOptions { WriteIndented = true }));
-        _settingsCache = d;
-    }
+    private static IReadOnlyDictionary<string, string> ReadSettings() => SettingsFile.Snapshot();
 
     private string VersionKey(string packId) => $"ShaderPack_{packId}_Version";
 
@@ -602,9 +559,9 @@ public partial class ShaderPackService
         await _settingsLock.WaitAsync().ConfigureAwait(false);
         try
         {
-            var d = new Dictionary<string, string>(ReadSettings());
+            SettingsFile.Update(d => {
             d[VersionKey(packId)] = version;
-            WriteSettings(d);
+            }, "ShaderPackService.Settings");
         }
         catch (Exception ex) { CrashReporter.Log($"[ShaderPackService.SaveStoredVersionAsync] Failed to save version for '{packId}' — {ex.Message}"); }
         finally { _settingsLock.Release(); }
@@ -665,12 +622,12 @@ public partial class ShaderPackService
         _settingsLock.Wait();
         try
         {
-            var d = new Dictionary<string, string>(ReadSettings());
+            SettingsFile.Update(d => {
             d.Remove($"ShaderPack_{packId}_Files");
             d.Remove($"ShaderPack_{packId}_Version");
             d.Remove($"ShaderPack_{packId}_CacheTimestamp");
             d.Remove(ExcludedFilesKey(packId));
-            WriteSettings(d);
+            }, "ShaderPackService.Settings");
         }
         catch (Exception ex) { CrashReporter.Log($"[ShaderPackService.ClearPackRegistration] Failed for '{packId}' — {ex.Message}"); }
         finally { _settingsLock.Release(); }
@@ -682,12 +639,12 @@ public partial class ShaderPackService
         await _settingsLock.WaitAsync().ConfigureAwait(false);
         try
         {
-            var d = new Dictionary<string, string>(ReadSettings());
+            SettingsFile.Update(d => {
             d.Remove($"ShaderPack_{packId}_Files");
             d.Remove($"ShaderPack_{packId}_Version");
             d.Remove($"ShaderPack_{packId}_CacheTimestamp");
             d.Remove(ExcludedFilesKey(packId));
-            WriteSettings(d);
+            }, "ShaderPackService.Settings");
         }
         catch (Exception ex) { CrashReporter.Log($"[ShaderPackService.ClearPackRegistrationAsync] Failed for '{packId}' — {ex.Message}"); }
         finally { _settingsLock.Release(); }
@@ -698,13 +655,13 @@ public partial class ShaderPackService
         _settingsLock.Wait();
         try
         {
-            var d = new Dictionary<string, string>(ReadSettings());
             var list = excluded.ToList();
+            SettingsFile.Update(d => {
             if (list.Count > 0)
                 d[ExcludedFilesKey(packId)] = JsonSerializer.Serialize(list);
             else
                 d.Remove(ExcludedFilesKey(packId));
-            WriteSettings(d);
+            }, "ShaderPackService.Settings");
             CrashReporter.Log($"[ShaderPackService.SetExcludedFiles] Saved {list.Count} exclusion(s) for '{packId}'");
         }
         catch (Exception ex)
@@ -720,13 +677,13 @@ public partial class ShaderPackService
         await _settingsLock.WaitAsync().ConfigureAwait(false);
         try
         {
-            var d = new Dictionary<string, string>(ReadSettings());
             var list = excluded.ToList();
+            SettingsFile.Update(d => {
             if (list.Count > 0)
                 d[ExcludedFilesKey(packId)] = JsonSerializer.Serialize(list);
             else
                 d.Remove(ExcludedFilesKey(packId));
-            WriteSettings(d);
+            }, "ShaderPackService.Settings");
             CrashReporter.Log($"[ShaderPackService.SetExcludedFilesAsync] Saved {list.Count} exclusion(s) for '{packId}'");
         }
         catch (Exception ex)
@@ -766,10 +723,10 @@ public partial class ShaderPackService
         _settingsLock.Wait();
         try
         {
-            var d = new Dictionary<string, string>(ReadSettings());
+            SettingsFile.Update(d => {
             d[FileListKey(packId)] = JsonSerializer.Serialize(files);
             // No version token — leave any existing version as-is
-            WriteSettings(d);
+            }, "ShaderPackService.Settings");
             CrashReporter.Log($"[ShaderPackService.RecordExtractedFilesFromDir] Recorded {files.Count} file(s) for pack '{packId}'");
         }
         finally { _settingsLock.Release(); }
@@ -805,10 +762,10 @@ public partial class ShaderPackService
         await _settingsLock.WaitAsync().ConfigureAwait(false);
         try
         {
-            var d = new Dictionary<string, string>(ReadSettings());
+            SettingsFile.Update(d => {
             d[FileListKey(packId)] = JsonSerializer.Serialize(files);
             // No version token — leave any existing version as-is
-            WriteSettings(d);
+            }, "ShaderPackService.Settings");
             CrashReporter.Log($"[ShaderPackService.RecordExtractedFilesFromDirAsync] Recorded {files.Count} file(s) for pack '{packId}'");
         }
         finally { _settingsLock.Release(); }

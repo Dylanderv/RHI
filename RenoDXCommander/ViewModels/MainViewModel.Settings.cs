@@ -1849,26 +1849,7 @@ public partial class MainViewModel
     {
         var result = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
 
-        var settingsPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "RHI", "settings.json");
-
-        if (!File.Exists(settingsPath))
-            return result;
-
-        Dictionary<string, string>? settings;
-        try
-        {
-            settings = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(settingsPath));
-        }
-        catch (Exception ex)
-        {
-            _crashReporter.Log($"[MainViewModel.BuildPackFileLists] Failed to read settings — {ex.Message}");
-            return result;
-        }
-
-        if (settings is null)
-            return result;
+        var settings = SettingsFile.Snapshot();
 
         foreach (var (packId, _, _) in _shaderPackService.AvailablePacks)
         {

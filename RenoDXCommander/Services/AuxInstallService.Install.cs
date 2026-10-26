@@ -457,43 +457,36 @@ public partial class AuxInstallService
 
     private void SaveRecord(AuxInstalledRecord record)
     {
-        var db = LoadDb();
-        var i  = db.FindIndex(r =>
-            r.GameName.Equals(record.GameName, StringComparison.OrdinalIgnoreCase) &&
-            r.InstallPath.Equals(record.InstallPath, StringComparison.OrdinalIgnoreCase) &&
-            r.AddonType.Equals(record.AddonType, StringComparison.OrdinalIgnoreCase));
-        if (i >= 0) db[i] = record; else db.Add(record);
-        SaveDb(db);
+        lock (SafeJsonFile.LockFor(DbPath))
+        {
+            var db = LoadDb();
+            var i  = db.FindIndex(r =>
+                r.GameName.Equals(record.GameName, StringComparison.OrdinalIgnoreCase) &&
+                r.InstallPath.Equals(record.InstallPath, StringComparison.OrdinalIgnoreCase) &&
+                r.AddonType.Equals(record.AddonType, StringComparison.OrdinalIgnoreCase));
+            if (i >= 0) db[i] = record; else db.Add(record);
+            SaveDb(db);
+        }
     }
 
     public void SaveAuxRecord(AuxInstalledRecord record) => SaveRecord(record);
 
     public void RemoveRecord(AuxInstalledRecord record)
     {
-        var db = LoadDb();
-        db.RemoveAll(r =>
-            r.GameName.Equals(record.GameName, StringComparison.OrdinalIgnoreCase) &&
-            r.InstallPath.Equals(record.InstallPath, StringComparison.OrdinalIgnoreCase) &&
-            r.AddonType.Equals(record.AddonType, StringComparison.OrdinalIgnoreCase));
-        SaveDb(db);
-    }
-
-    private List<AuxInstalledRecord> LoadDb()
-    {
-        try
+        lock (SafeJsonFile.LockFor(DbPath))
         {
-            if (!File.Exists(DbPath)) return new();
-            return JsonSerializer.Deserialize<List<AuxInstalledRecord>>(File.ReadAllText(DbPath)) ?? new();
+            var db = LoadDb();
+            db.RemoveAll(r =>
+                r.GameName.Equals(record.GameName, StringComparison.OrdinalIgnoreCase) &&
+                r.InstallPath.Equals(record.InstallPath, StringComparison.OrdinalIgnoreCase) &&
+                r.AddonType.Equals(record.AddonType, StringComparison.OrdinalIgnoreCase));
+            SaveDb(db);
         }
-        catch (Exception ex) { CrashReporter.Log($"[AuxInstallService.LoadDb] Failed to load DB from '{DbPath}' — {ex.Message}"); return new(); }
     }
 
-    private void SaveDb(List<AuxInstalledRecord> db)
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(DbPath)!);
-        var json = JsonSerializer.Serialize(db,
-            new JsonSerializerOptions { WriteIndented = true });
+    // SafeJsonFile: atomic write + .bak, corrupt-file recovery, no save over an unreadable file.
+    private List<AuxInstalledRecord> LoadDb() => SafeJsonFile.ReadList<AuxInstalledRecord>(DbPath);
 
-        FileHelper.WriteAllTextWithRetry(DbPath, json, "AuxInstallService.SaveDb");
-    }
+    private void SaveDb(List<AuxInstalledRecord> db) =>
+        SafeJsonFile.Write(DbPath, db, "AuxInstallService.SaveDb", SafeJsonFile.Indented);
 }

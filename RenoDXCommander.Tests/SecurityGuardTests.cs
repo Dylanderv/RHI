@@ -39,8 +39,9 @@ public class SecurityGuardTests
 
     [Theory]
     [InlineData("https://api.github.com/repos/a/b/releases", true)]
-    [InlineData("https://github.com/a/b/releases/download/v1/x.zip", true)]
-    [InlineData("https://raw.githubusercontent.com/a/b/main/x.json", true)]
+    [InlineData("https://github.com/a/b/releases/download/v1/x.zip", false)]   // download hosts: no token
+    [InlineData("https://raw.githubusercontent.com/a/b/main/x.json", false)]  // (404 with an unaccepted token)
+    [InlineData("https://codeload.github.com/a/b/zip/refs/heads/main", false)]
     [InlineData("http://api.github.com/repos/a/b", false)]          // not HTTPS
     [InlineData("https://api.github.com.evil.com/x", false)]        // lookalike host
     [InlineData("https://evilgithub.com/x", false)]

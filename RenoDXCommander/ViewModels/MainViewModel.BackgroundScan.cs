@@ -192,12 +192,12 @@ public partial class MainViewModel
                 try
                 {
                     await _ualService.CheckForUpdateAsync();
-                    if (_ualService.HasUpdate)
-                    {
-                        await _ualService.EnsureStagingAsync(is32Bit: false);
-                        await _ualService.EnsureStagingAsync(is32Bit: true);
-                        await _ualService.AutoUpdateInstalledGamesAsync(_allCards);
-                    }
+                    // Each call is a no-op unless that bitness is staged and outdated.
+                    if (_ualService.HasUpdate64) await _ualService.EnsureStagingAsync(is32Bit: false);
+                    if (_ualService.HasUpdate32) await _ualService.EnsureStagingAsync(is32Bit: true);
+                    // Always runs: copies the staged file into any game whose copy differs,
+                    // including games that were running during an earlier update.
+                    await _ualService.AutoUpdateInstalledGamesAsync(_allCards);
                 }
                 catch (Exception ex) { _crashReporter.Log($"[RunBackgroundScanAndMergeAsync] UAL task failed — {ex.Message}"); }
             });

@@ -36,19 +36,35 @@ To connect: open **Settings → GitHub API** and click **Sign in with GitHub**. 
 **NR Cost Scaler / DLSS FG 20/30**
 - Fixed updates to NR Cost Scaler and DLSS FG for RTX 20/30 not being copied into game folders when found at startup.
 
+**Ultimate ASI Loader**
+- Fixed ASI Loader updates never reaching games: RHI downloaded new versions but didn't copy them into game folders. Games with the ASI Loader installed are now brought up to date automatically at startup, including games that were running when an update arrived.
+- Fixed the 64-bit ASI Loader being downloaded again on every launch, and the 32-bit copy never updating.
+
+**Settings and install records**
+- Fixed all settings being reset (with the first-time setup screen shown again) if the settings file was damaged, for example by a crash or power cut while it was being saved. RHI now keeps a backup copy and restores it automatically. The damaged file is kept beside it as `settings.json.corrupt-…`.
+- Fixed settings sometimes being lost when they were saved at the same moment as a shader pack update, or while a setting was being changed.
+- Fixed RHI losing track of installed mods (no update badges, uninstall unable to restore the original files) if an install record file was damaged. The records for RenoDX, ReShade and other addons, Luma, RE Framework and DXVK now keep a backup and recover from it.
+- Fixed two installs or uninstalls finishing at the same time sometimes forgetting one of them.
+- Fixed renaming a game losing its Luma TAA setting.
+- Fixed clearing the last OptiScaler Streamline version, OptiScaler NR runtime or ASI Loader install name coming back the next time RHI started.
+
 **Security**
 - Fixed your GitHub sign-in token being sent along with downloads from non-GitHub sites (such as ReShade, Nexus Mods and PCGamingWiki). It is now only ever sent to GitHub.
+- Fixed some shader packs failing to download or update ("Not Found") for users signed in to GitHub or using a personal access token.
 - Fixed a crafted Luma, shader pack or shader profile archive being able to place files outside the game or shader folder. Luma uninstall also no longer deletes anything outside the game folder.
 
 ### Maintenance
 
 - Fixed many errors being silently ignored instead of written to the log, making problems easier to diagnose from your session logs.
 - Fixed some unexpected errors in buttons and settings showing a crash report instead of being logged and recovered from.
+- Fixed shader pack deployment re-reading the whole settings file once per pack for every game.
 
 ### Manifest Updates
 
 - Added DLSS SR / RR / FG 310.9.16 and Streamline 2.14.16.0.
 - Added Streamline 2.14.16.0-v2 (NVIDIA's updated build of 2.14.16.0), replacing the original 2.14.16.0 build in the version list.
+- Added ShortFuse DLSS Tool 26.1016.1304.
+- Added DLSS NR 310.9.16.
 - Added DLSS FG Preset C.
 - Added Depth3D Cursor Add-on as a managed addon.
 

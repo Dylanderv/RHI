@@ -86,7 +86,15 @@ public class UltimateAsiLoaderService
     public bool IsStagingReady32 => File.Exists(Path.Combine(_stagingDir32, DefaultDllName));
     public bool IsStagingReady64 => File.Exists(Path.Combine(_stagingDir64, DefaultDllName));
 
-    public bool   HasUpdate       { get; private set; }
+    // Each bitness is staged and versioned separately. A bitness that has never been staged
+    // isn't "outdated" — it downloads on demand the first time a game needs it.
+    public bool HasUpdate32 => IsStagingReady32 && IsOutdated(StagedVersion32);
+    public bool HasUpdate64 => IsStagingReady64 && IsOutdated(StagedVersion64);
+    public bool HasUpdate   => HasUpdate32 || HasUpdate64;
+
+    private bool IsOutdated(string? staged) =>
+        LatestVersion != null && !string.Equals(staged, LatestVersion, StringComparison.OrdinalIgnoreCase);
+
     public string? LatestVersion  { get; private set; }
     public string? ReleaseNotes   { get; private set; }
 
@@ -104,13 +112,7 @@ public class UltimateAsiLoaderService
         LatestVersion = version;
         ReleaseNotes  = body;
 
-        // HasUpdate if either bitness variant needs updating
-        var cur32 = StagedVersion32;
-        var cur64 = StagedVersion64;
-        HasUpdate = !string.Equals(cur32, version, StringComparison.OrdinalIgnoreCase)
-                 || !string.Equals(cur64, version, StringComparison.OrdinalIgnoreCase);
-
-        _crashReporter.Log($"[UltimateAsiLoaderService.CheckForUpdateAsync] 32={cur32 ?? "(none)"} 64={cur64 ?? "(none)"} Remote={version} HasUpdate={HasUpdate}");
+        _crashReporter.Log($"[UltimateAsiLoaderService.CheckForUpdateAsync] 32={StagedVersion32 ?? "(none)"} 64={StagedVersion64 ?? "(none)"} Remote={version} HasUpdate32={HasUpdate32} HasUpdate64={HasUpdate64}");
     }
 
     // ── Staging ───────────────────────────────────────────────────────────────
@@ -121,9 +123,9 @@ public class UltimateAsiLoaderService
         var versionFile = is32Bit ? _versionFile32 : _versionFile64;
         var assetName   = is32Bit ? Zip32Asset      : Zip64Asset;
         bool isReady    = is32Bit ? IsStagingReady32 : IsStagingReady64;
-        string? staged  = is32Bit ? StagedVersion32  : StagedVersion64;
+        bool hasUpdate  = is32Bit ? HasUpdate32      : HasUpdate64;
 
-        if (isReady && !HasUpdate)
+        if (isReady && !hasUpdate)
         {
             _crashReporter.Log($"[UltimateAsiLoaderService.EnsureStagingAsync] {(is32Bit ? "32" : "64")}-bit already valid — skipping");
             return;
@@ -163,8 +165,8 @@ public class UltimateAsiLoaderService
             await src.CopyToAsync(dest).ConfigureAwait(false);
 
             File.WriteAllText(versionFile, version);
-            ReleaseNotes = body;
-            HasUpdate    = false;
+            ReleaseNotes  = body;
+            LatestVersion = version;
             _crashReporter.Log($"[UltimateAsiLoaderService.EnsureStagingAsync] Staged v{version} ({(is32Bit ? "32" : "64")}-bit) to {stagingDir}");
         }
         catch (Exception ex)
@@ -341,26 +343,38 @@ public class UltimateAsiLoaderService
     // ── Auto-update (redeploy to already-installed games) ─────────────────────
 
     /// <summary>
-    /// After EnsureStagingAsync fetches a new version, redeploy to all games that have UAL installed.
+    /// Brings every game with UAL installed up to the staged copy for its bitness.
+    /// Compares each game's file with staging (size + modified time; File.Copy keeps the
+    /// source's time) instead of relying on an "updated this session" flag, so a game that
+    /// was running during an update is caught up on the next launch.
     /// </summary>
-    public async Task AutoUpdateInstalledGamesAsync(IReadOnlyList<GameCardViewModel> cards)
+    public Task AutoUpdateInstalledGamesAsync(IReadOnlyList<GameCardViewModel> cards)
     {
-        if (!HasUpdate) return;
+        var records = _auxInstaller.LoadAll()
+            .Where(r => r.AddonType.Equals(AddonType, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        if (records.Count == 0) return Task.CompletedTask;
 
-        var installed = cards.Where(c =>
-            !string.IsNullOrEmpty(c.InstallPath)
-            && _auxInstaller.FindRecord(c.GameName, c.InstallPath, AddonType) != null).ToList();
-
-        foreach (var card in installed)
+        foreach (var card in cards.ToList())
         {
-            var record = _auxInstaller.FindRecord(card.GameName, card.InstallPath!, AddonType);
-            if (record == null) continue;
+            if (string.IsNullOrEmpty(card.InstallPath)) continue;
+            var record = records.FirstOrDefault(r =>
+                r.GameName.Equals(card.GameName, StringComparison.OrdinalIgnoreCase)
+                && r.InstallPath.Equals(card.InstallPath, StringComparison.OrdinalIgnoreCase));
+            if (record == null || string.IsNullOrEmpty(record.InstalledAs)) continue;
 
             var stagingDir = card.Is32Bit ? _stagingDir32 : _stagingDir64;
             var src        = Path.Combine(stagingDir, DefaultDllName);
-            var dest       = Path.Combine(record.InstallPath, record.InstalledAs);
+            var dest       = FileHelper.SafeCombine(record.InstallPath, record.InstalledAs);
 
-            if (!File.Exists(src)) continue;
+            if (dest == null || !File.Exists(src)) continue;
+            // Never re-create a file the user removed.
+            if (!File.Exists(dest)) continue;
+
+            var srcInfo  = new FileInfo(src);
+            var destInfo = new FileInfo(dest);
+            if (srcInfo.Length == destInfo.Length && srcInfo.LastWriteTimeUtc == destInfo.LastWriteTimeUtc)
+                continue;
 
             try
             {
@@ -372,6 +386,7 @@ public class UltimateAsiLoaderService
                 _crashReporter.Log($"[UltimateAsiLoaderService.AutoUpdate] Failed for '{card.GameName}' — {ex.Message}");
             }
         }
+        return Task.CompletedTask;
     }
 
     // ── Detection ─────────────────────────────────────────────────────────────

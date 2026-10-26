@@ -518,9 +518,12 @@ public class ModInstallService : IModInstallService
         }
         // Cache copy intentionally kept for future reinstalls.
 
-        var db = LoadDb();
-        db.RemoveAll(r => r.GameName == record.GameName && r.InstallPath == record.InstallPath);
-        SaveDb(db);
+        lock (SafeJsonFile.LockFor(DbPath))
+        {
+            var db = LoadDb();
+            db.RemoveAll(r => r.GameName == record.GameName && r.InstallPath == record.InstallPath);
+            SaveDb(db);
+        }
     }
 
     // ── Database ──────────────────────────────────────────────────────────────────
@@ -540,39 +543,32 @@ public class ModInstallService : IModInstallService
     /// <summary>Removes the install record from the DB without touching any files on disk.</summary>
     public void RemoveRecord(InstalledModRecord record)
     {
-        var db = LoadDb();
-        db.RemoveAll(r => r.GameName == record.GameName && r.InstallPath == record.InstallPath);
-        SaveDb(db);
+        lock (SafeJsonFile.LockFor(DbPath))
+        {
+            var db = LoadDb();
+            db.RemoveAll(r => r.GameName == record.GameName && r.InstallPath == record.InstallPath);
+            SaveDb(db);
+        }
     }
 
     private void SaveRecord(InstalledModRecord record)
     {
-        var db = LoadDb();
-        var i  = db.FindIndex(r =>
-            r.GameName == record.GameName &&
-            r.InstallPath.Equals(record.InstallPath, StringComparison.OrdinalIgnoreCase));
-        if (i >= 0) db[i] = record; else db.Add(record);
-        SaveDb(db);
-    }
-
-    private List<InstalledModRecord> LoadDb()
-    {
-        try
+        lock (SafeJsonFile.LockFor(DbPath))
         {
-            if (!File.Exists(DbPath)) return new();
-            return JsonSerializer.Deserialize<List<InstalledModRecord>>(File.ReadAllText(DbPath)) ?? new();
+            var db = LoadDb();
+            var i  = db.FindIndex(r =>
+                r.GameName == record.GameName &&
+                r.InstallPath.Equals(record.InstallPath, StringComparison.OrdinalIgnoreCase));
+            if (i >= 0) db[i] = record; else db.Add(record);
+            SaveDb(db);
         }
-        catch (Exception ex) { CrashReporter.Log($"[ModInstallService.LoadDb] Failed to load DB from '{DbPath}' — {ex.Message}"); return new(); }
     }
 
-    private void SaveDb(List<InstalledModRecord> db)
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(DbPath)!);
-        var json = JsonSerializer.Serialize(db,
-            new JsonSerializerOptions { WriteIndented = true });
+    // SafeJsonFile: atomic write + .bak, corrupt-file recovery, no save over an unreadable file.
+    private List<InstalledModRecord> LoadDb() => SafeJsonFile.ReadList<InstalledModRecord>(DbPath);
 
-        FileHelper.WriteAllTextWithRetry(DbPath, json, "ModInstallService.SaveDb");
-    }
+    private void SaveDb(List<InstalledModRecord> db) =>
+        SafeJsonFile.Write(DbPath, db, "ModInstallService.SaveDb", SafeJsonFile.Indented);
 
     private static async Task<string> ComputeHashAsync(string path)
     {

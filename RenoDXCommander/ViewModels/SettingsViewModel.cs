@@ -11,11 +11,6 @@ namespace RenoDXCommander.ViewModels;
 /// </summary>
 public partial class SettingsViewModel : ObservableObject
 {
-    // Settings stored as JSON — ApplicationData.Current throws in unpackaged WinUI 3
-    private static readonly string _settingsFilePath = System.IO.Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "RHI", "settings.json");
-
     [ObservableProperty] private bool _skipUpdateCheck;
     [ObservableProperty] private bool _betaOptIn;
     [ObservableProperty] private bool _verboseLogging;
@@ -162,24 +157,15 @@ public partial class SettingsViewModel : ObservableObject
 
     // ── Settings file I/O ─────────────────────────────────────────────────────────
 
-    public static Dictionary<string, string> LoadSettingsFile()
-    {
-        try
-        {
-            if (!System.IO.File.Exists(_settingsFilePath)) return new(StringComparer.OrdinalIgnoreCase);
-            var json = System.IO.File.ReadAllText(_settingsFilePath);
-            return JsonSerializer.Deserialize<Dictionary<string, string>>(json)
-                   ?? new(StringComparer.OrdinalIgnoreCase);
-        }
-        catch (Exception ex) { CrashReporter.Log($"[SettingsViewModel.LoadSettingsFile] Failed to load settings — {ex.Message}"); return new(StringComparer.OrdinalIgnoreCase); }
-    }
+    // All settings.json access goes through SettingsFile (shared lock, .bak, corrupt-file recovery).
+    public static Dictionary<string, string> LoadSettingsFile() => SettingsFile.Load();
 
-    public static void SaveSettingsFile(Dictionary<string, string> settings)
-    {
-        System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(_settingsFilePath)!);
-        var json = JsonSerializer.Serialize(settings);
-        FileHelper.WriteAllTextAtomic(_settingsFilePath, json, "SettingsViewModel.SaveSettingsFile");
-    }
+    public static Dictionary<string, string> LoadSettingsFile(out SafeJsonFile.LoadStatus status) =>
+        SettingsFile.Load(out status);
+
+    /// <summary>Read-modify-write of settings.json under the shared lock.</summary>
+    public static bool UpdateSettingsFile(Action<Dictionary<string, string>> mutate, string callerTag) =>
+        SettingsFile.Update(mutate, callerTag);
 
     /// <summary>
     /// Loads settings-specific values (SkipUpdateCheck, VerboseLogging,

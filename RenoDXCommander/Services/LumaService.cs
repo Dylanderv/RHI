@@ -948,33 +948,22 @@ public class LumaService : ILumaService
 
     // ── Record persistence ────────────────────────────────────────────────────────
 
-    private static List<LumaInstalledRecord> LoadAllRecords()
-    {
-        try
-        {
-            if (!File.Exists(DbPath)) return new();
-            var json = File.ReadAllText(DbPath);
-            return JsonSerializer.Deserialize<List<LumaInstalledRecord>>(json) ?? new();
-        }
-        catch (Exception ex) { CrashReporter.Log($"[LumaService.LoadAllRecords] Failed to load Luma records from '{DbPath}' — {ex.Message}"); return new(); }
-    }
+    // SafeJsonFile: atomic write + .bak, corrupt-file recovery, no save over an unreadable file.
+    private static List<LumaInstalledRecord> LoadAllRecords() => SafeJsonFile.ReadList<LumaInstalledRecord>(DbPath);
 
-    private static void SaveAllRecords(List<LumaInstalledRecord> records)
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(DbPath)!);
-        var json = JsonSerializer.Serialize(records,
-            new JsonSerializerOptions { WriteIndented = true });
-
-        FileHelper.WriteAllTextWithRetry(DbPath, json, "LumaService.SaveAllRecords");
-    }
+    private static void SaveAllRecords(List<LumaInstalledRecord> records) =>
+        SafeJsonFile.Write(DbPath, records, "LumaService.SaveAllRecords", SafeJsonFile.Indented);
 
     private void SaveRecord(LumaInstalledRecord record)
     {
-        var records = LoadAllRecords();
-        records.RemoveAll(r => r.GameName == record.GameName
-                            && r.InstallPath.Equals(record.InstallPath, StringComparison.OrdinalIgnoreCase));
-        records.Add(record);
-        SaveAllRecords(records);
+        lock (SafeJsonFile.LockFor(DbPath))
+        {
+            var records = LoadAllRecords();
+            records.RemoveAll(r => r.GameName == record.GameName
+                                && r.InstallPath.Equals(record.InstallPath, StringComparison.OrdinalIgnoreCase));
+            records.Add(record);
+            SaveAllRecords(records);
+        }
     }
 
     public void SaveLumaRecord(LumaInstalledRecord record) => SaveRecord(record);
@@ -983,10 +972,13 @@ public class LumaService : ILumaService
 
     private void RemoveRecord(string gameName, string installPath)
     {
-        var records = LoadAllRecords();
-        records.RemoveAll(r => r.GameName == gameName
-                            && r.InstallPath.Equals(installPath, StringComparison.OrdinalIgnoreCase));
-        SaveAllRecords(records);
+        lock (SafeJsonFile.LockFor(DbPath))
+        {
+            var records = LoadAllRecords();
+            records.RemoveAll(r => r.GameName == gameName
+                                && r.InstallPath.Equals(installPath, StringComparison.OrdinalIgnoreCase));
+            SaveAllRecords(records);
+        }
     }
 
     public static LumaInstalledRecord? GetRecord(string gameName, string installPath)
@@ -1006,10 +998,13 @@ public class LumaService : ILumaService
     /// <summary>Removes any persisted record matching the install path.</summary>
     public static void RemoveRecordByPath(string installPath)
     {
-        var records = LoadAllRecords();
-        var count = records.RemoveAll(r =>
-            r.InstallPath.Equals(installPath, StringComparison.OrdinalIgnoreCase));
-        if (count > 0) SaveAllRecords(records);
+        lock (SafeJsonFile.LockFor(DbPath))
+        {
+            var records = LoadAllRecords();
+            var count = records.RemoveAll(r =>
+                r.InstallPath.Equals(installPath, StringComparison.OrdinalIgnoreCase));
+            if (count > 0) SaveAllRecords(records);
+        }
     }
 
     private static string Clean(string s) => System.Text.RegularExpressions.Regex.Replace(HtmlEntity.DeEntitize(s ?? "").Trim(), @"\s+", " ");

@@ -61,8 +61,7 @@ public partial class ShaderPackService
         {
             try
             {
-                if (!File.Exists(SettingsPath)) continue;
-                var d = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(SettingsPath));
+                var d = ReadSettings();
                 if (d == null || !d.TryGetValue(FileListKey(pack.Id), out var json) || string.IsNullOrEmpty(json))
                     continue;
                 var files = JsonSerializer.Deserialize<List<string>>(json) ?? new();
@@ -135,8 +134,7 @@ public partial class ShaderPackService
         var textures = new List<string>();
         try
         {
-            if (!File.Exists(SettingsPath)) return (shaders, textures);
-            var d = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(SettingsPath));
+            var d = ReadSettings();
             if (d == null) return (shaders, textures);
             foreach (var pack in PacksForIds(expandedIds))
             {
@@ -279,8 +277,7 @@ public partial class ShaderPackService
         var textures = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         try
         {
-            if (!File.Exists(SettingsPath)) return (shaders, textures);
-            var d = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(SettingsPath));
+            var d = ReadSettings();
             if (d == null) return (shaders, textures);
             foreach (var pack in _packs)
             {

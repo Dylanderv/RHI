@@ -9,12 +9,12 @@ namespace RenoDXCommander.Services;
 public sealed class GitHubTokenHandler : DelegatingHandler
 {
     // Hosts that may receive the token. Exact match, HTTPS only.
+    // API only: the token raises the API rate limit and does nothing elsewhere. Download hosts
+    // (codeload, raw.githubusercontent) answer 404 to a token they don't accept (e.g. a
+    // fine-grained PAT), which broke shader pack downloads for signed-in users.
     private static readonly HashSet<string> GitHubHosts = new(StringComparer.OrdinalIgnoreCase)
     {
         "api.github.com",
-        "github.com",
-        "raw.githubusercontent.com",
-        "codeload.github.com",
     };
 
     private static volatile string? _token;

@@ -299,6 +299,9 @@ public class GameNameService : IGameNameService
     // ── Debounce infrastructure for SaveNameMappings ─────────────────────────
     private Timer? _saveDebounceTimer;
     private readonly object _saveLock = new();
+
+    // Set when settings.json existed but couldn't be read at startup; blocks saves for the session.
+    private volatile bool _settingsLoadFailed;
     private IDllOverrideService? _pendingDllOverride;
     private SettingsViewModel? _pendingSettings;
     private ViewLayout _pendingViewLayout;
@@ -359,11 +362,13 @@ public class GameNameService : IGameNameService
         _hiddenGames            ??= new(StringComparer.OrdinalIgnoreCase);
         _favouriteGames         ??= new(StringComparer.OrdinalIgnoreCase);
 
-        Dictionary<string, string> s;
-        try { s = SettingsViewModel.LoadSettingsFile(); }
-        catch (Exception ex)
+        var s = SettingsViewModel.LoadSettingsFile(out var loadStatus);
+        // If the file exists but couldn't be read, our in-memory state is all defaults.
+        // Saving that would replace the user's settings, so block saves until a load succeeds.
+        _settingsLoadFailed = loadStatus == SafeJsonFile.LoadStatus.Unreadable;
+        if (_settingsLoadFailed)
         {
-            CrashReporter.Log($"[GameNameService.LoadNameMappings] Settings file unreadable — {ex.Message}");
+            CrashReporter.Log("[GameNameService.LoadNameMappings] Settings file unreadable — saves disabled this session to protect it");
             return new(StringComparer.OrdinalIgnoreCase);
         }
 
@@ -845,12 +850,20 @@ public class GameNameService : IGameNameService
         string filterMode,
         List<CustomFilter> customFilters)
     {
-        // Retry with short delays to handle file contention from concurrent background tasks
+        if (_settingsLoadFailed)
+        {
+            CrashReporter.Log("[GameNameService.SaveNameMappings] Skipped — settings couldn't be read at startup, saving would overwrite them");
+            return;
+        }
+
+        // The timer runs on a pool thread while the UI may still be changing these collections,
+        // so serializing can hit "collection was modified". Retry; the next pass sees a stable copy.
+        // File locking, .bak and partial-write protection are handled by SettingsFile.Update.
         for (int attempt = 0; attempt < 3; attempt++)
         {
             try
             {
-                var s = SettingsViewModel.LoadSettingsFile();
+                SettingsViewModel.UpdateSettingsFile(s => {
                 s["NameMappings"]    = JsonSerializer.Serialize(
                     _nameMappings
                         .Where(kv => !_manifestNameMappingKeys.Contains(kv.Key))
@@ -933,8 +946,11 @@ public class GameNameService : IGameNameService
                 s["OsFsrFgSwapchain"] = JsonSerializer.Serialize(_osFsrFgSwapchain.ToList());
                 s["OsUpscalerPlugin"] = JsonSerializer.Serialize(_osUpscalerPlugin.ToList());
                 if (_osStreamlineVersion.Count > 0) s["OsStreamlineVersion"] = JsonSerializer.Serialize(_osStreamlineVersion);
+                else s.Remove("OsStreamlineVersion");
                 if (_osNrRuntime.Count > 0) s["OsNrRuntime"] = JsonSerializer.Serialize(_osNrRuntime);
+                else s.Remove("OsNrRuntime");
                 if (_ualInstalledAs.Count > 0) s["UalInstalledAs"] = JsonSerializer.Serialize(_ualInstalledAs);
+                else s.Remove("UalInstalledAs");
                 if (_deInstalledAs.Count > 0) s["DeInstalledAs"] = JsonSerializer.Serialize(_deInstalledAs);
                 else s.Remove("DeInstalledAs");
                 if (_sfAutoConfigEnabled.Count > 0) s["SfAutoConfigEnabled"] = JsonSerializer.Serialize(_sfAutoConfigEnabled.ToList());
@@ -958,13 +974,12 @@ public class GameNameService : IGameNameService
                 s["ViewLayout"]          = ((int)currentViewLayout).ToString();
                 s["FilterMode"]          = filterMode;
                 s["CustomFilters"]       = JsonSerializer.Serialize(customFilters);
-                SettingsViewModel.SaveSettingsFile(s);
+                }, "GameNameService.SaveNameMappings");
                 return;
             }
-            catch (IOException ex) when (attempt < 2)
+            catch (InvalidOperationException ex) when (attempt < 2)
             {
-                CrashReporter.Log($"[GameNameService.SaveNameMappings] IO retry {attempt + 1}: {ex.Message}");
-                // Don't sleep on UI thread — just log and retry immediately on next attempt
+                CrashReporter.Log($"[GameNameService.SaveNameMappings] Retry {attempt + 1} — {ex.Message}");
             }
             catch (Exception ex)
             {
@@ -1108,6 +1123,7 @@ public class GameNameService : IGameNameService
         MigrateHashSet(_ueExtendedOptOutGames, oldName, newName);
         MigrateHashSet(_rtxHdrGames, oldName, newName);
         MigrateHashSet(_autoHdrGames, oldName, newName);
+        MigrateHashSet(_lumaTaaEnabled, oldName, newName);
         MigrateDict(_autoHdrStrengths, oldName, newName);
         MigrateDict(_autoHdrLaunchToggle, oldName, newName);
 
