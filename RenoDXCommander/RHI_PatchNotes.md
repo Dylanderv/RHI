@@ -13,6 +13,9 @@ To connect: open **Settings → GitHub API** and click **Sign in with GitHub**. 
 
 ### Bug Fixes
 
+**Shaders**
+- Fixed RHI deleting and re-copying the shaders in every ReShade game's `reshade-shaders` folder on each launch and Refresh, even when nothing had changed. Only new or changed shaders are now copied and only removed ones deleted, so games that are running keep their shaders.
+
 **Background downloads**
 - Fixed the ReShade nightly build being downloaded again on every launch even when it hadn't changed.
 
