@@ -1098,7 +1098,7 @@ public partial class MainViewModel
             {
                 var installPathForMfg = newCard.InstallPath ?? "";
                 var mfgAdaPath = !string.IsNullOrEmpty(installPathForMfg)
-                    ? Path.Combine(installPathForMfg, "renodx-mfgunlock.addon64")
+                    ? Path.Combine(ModInstallService.GetAddonDeployPath(installPathForMfg), "renodx-mfgunlock.addon64")
                     : null;
                 bool mfgAdaInstalled = mfgAdaPath != null && File.Exists(mfgAdaPath);
 

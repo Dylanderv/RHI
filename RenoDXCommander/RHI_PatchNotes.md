@@ -11,6 +11,7 @@ To connect: open **Settings → GitHub API** and click **Sign in with GitHub**. 
 - Epic games are now detected when you use the new Epic Games Launcher (preview). Switching to it removes the game list RHI used to read, so Epic games stopped showing up.
 - Faster game list loading at startup. Games on engines without special handling in RHI (such as Frostbite, RAGE or Northlight) are no longer fully scanned on every launch: RHI uses the engine listed on PCGamingWiki, and otherwise only scans again when the game's folder changes (for example after an update) or when you use Full Refresh.
 - Much less data used by update checks. RHI no longer downloads every installed RenoDX addon in full on each update check just to see whether it changed (several hundred MB per check with the generic Unity or UE-Extended addons installed). Unchanged addons are now confirmed with a tiny request; only addons that actually changed are downloaded.
+- "Available HDR Mods" is now "Available Mods" and also lists Ultra+ mods, in a new Ultra+ column. The Download column is gone: click any tick to open that mod's page. The top of the window now shows how many RenoDX, Luma and Ultra+ mods are available. Type RenoDX, Luma or Ultra+ in the search box to show only games with that mod (add a game name after it to narrow it further, e.g. "luma dead").
 
 ### Bug Fixes
 
@@ -44,6 +45,7 @@ To connect: open **Settings → GitHub API** and click **Sign in with GitHub**. 
 - Fixed MFG Ada Unlock installed from the Extras section sometimes not receiving updates.
 - Fixed MFG Ada Unlock being put back into a game after it was removed, the next time it updated.
 - Fixed some addons (such as ReShade Screenshot Discord Fix) being copied into games again on every launch even when they hadn't changed.
+- Fixed MFG Ada Unlock and addons from the addon picker being installed to the game folder when the game's `reshade.ini` has an `AddonPath` set. ReShade only loads addons from that folder, so the addon didn't load, or an older copy there kept loading instead. RHI now installs them into the `AddonPath` folder and removes the old copy it had put in the game folder.
 
 **Luma**
 - Fixed Luma mods that are now only available on Nexus Mods (such as Mass Effect: Andromeda) showing an update that Update All couldn't install, leaving the buttons purple. These mods are now checked against Nexus Mods, so they only show an update when a newer version is posted there, and the Update button opens the Nexus download page.

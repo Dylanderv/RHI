@@ -167,11 +167,14 @@ public partial class DetailPanelBuilder
                     return;
                 }
 
-                var dest = Path.Combine(installPath, DeployFileName);
+                // Follow reshade.ini AddonPath; ReShade ignores addons in the game folder when it is set
+                var deployDir = ModInstallService.GetAddonDeployPath(installPath);
+                var dest = Path.Combine(deployDir, DeployFileName);
                 File.Copy(stagedPath, dest, overwrite: true);
                 // Track it so addon updates are copied here too
-                AddonPackService.TrackAddonDeployment(installPath, DeployFileName);
-                CrashReporter.Log($"[BuildMfgAdaUnlockRow] Installed '{DeployFileName}' to '{installPath}'");
+                AddonPackService.TrackAddonDeployment(deployDir, DeployFileName);
+                RemoveMfgAdaRootCopy(installPath, deployDir);
+                CrashReporter.Log($"[BuildMfgAdaUnlockRow] Installed '{DeployFileName}' to '{deployDir}'");
                 _window.DispatcherQueue?.TryEnqueue(() =>
                 {
                     card.SetMfgState(mfgAdaInstalled: true, mfgAdaRtx40Conflict: card.Rtx40MfgInstalled, rtx40MfgInstalled: card.Rtx40MfgInstalled);
@@ -246,10 +249,15 @@ public partial class DetailPanelBuilder
             if (string.IsNullOrEmpty(installPath)) return;
             try
             {
-                var dest = Path.Combine(installPath, DeployFileName);
-                if (File.Exists(dest)) File.Delete(dest);
-                AddonPackService.UntrackAddonDeployment(installPath, DeployFileName);
-                CrashReporter.Log($"[BuildMfgAdaUnlockRow] Removed '{DeployFileName}' from '{installPath}'");
+                // Remove from the AddonPath folder and from the game folder (older installs went there)
+                var deployDir = ModInstallService.GetAddonDeployPath(installPath);
+                foreach (var dir in new[] { deployDir, installPath }.Distinct(StringComparer.OrdinalIgnoreCase))
+                {
+                    var dest = Path.Combine(dir, DeployFileName);
+                    if (File.Exists(dest)) File.Delete(dest);
+                    AddonPackService.UntrackAddonDeployment(dir, DeployFileName);
+                }
+                CrashReporter.Log($"[BuildMfgAdaUnlockRow] Removed '{DeployFileName}' from '{deployDir}'");
 
                 // Also remove from addon selections so SyncGameFolder doesn't redeploy it.
                 // MFG Ada Unlock installed via Extras greys out the picker toggle — the user
@@ -294,6 +302,32 @@ public partial class DetailPanelBuilder
 
     private static readonly string[] DeDllNames =
         { "version.dll", "dxgi.dll", "winmm.dll", "dbghelp.dll", "psapi.dll", "winhttp.dll" };
+
+    /// <summary>
+    /// After installing MFG Ada Unlock into a reshade.ini AddonPath folder, removes the copy older
+    /// installs left in the game folder. ReShade doesn't load it there, and it would go stale.
+    /// </summary>
+    private static void RemoveMfgAdaRootCopy(string installPath, string deployDir)
+    {
+        const string fileName = "renodx-mfgunlock.addon64";
+        if (string.Equals(Path.TrimEndingDirectorySeparator(deployDir), Path.TrimEndingDirectorySeparator(installPath),
+                StringComparison.OrdinalIgnoreCase))
+            return;
+        var oldCopy = Path.Combine(installPath, fileName);
+        try
+        {
+            if (File.Exists(oldCopy))
+            {
+                File.Delete(oldCopy);
+                CrashReporter.Log($"[BuildMfgAdaUnlockRow] Removed old '{fileName}' from '{installPath}' (AddonPath is '{deployDir}')");
+            }
+            AddonPackService.UntrackAddonDeployment(installPath, fileName);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            CrashReporter.Log($"[BuildMfgAdaUnlockRow] Could not remove old '{fileName}' from '{installPath}' — {ex.Message}");
+        }
+    }
 
     private void BuildDlssEnablerRow(GameCardViewModel card, StackPanel body)
     {

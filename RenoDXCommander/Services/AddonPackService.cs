@@ -862,16 +862,24 @@ public class AddonPackService : IAddonPackService
         // 2. Determine correct bitness extension
         var bitnessExt = is32Bit ? ".addon32" : ".addon64";
 
-        // 3. Create deploy directory if missing
+        // 3. Resolve where ReShade loads addons from (reshade.ini AddonPath, else the game folder)
+        //    and create it if missing. Game-root files (e.g. nvngx_dlssnr.dll) are still checked in installPath.
+        string deployDir;
         try
         {
             Directory.CreateDirectory(installPath);
+            deployDir = ModInstallService.GetAddonDeployPath(installPath);
+            Directory.CreateDirectory(deployDir);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            CrashReporter.Log($"[AddonPackService.DeployAddonsForGame] Failed to create deploy directory '{installPath}' — {ex.Message}");
+            CrashReporter.Log($"[AddonPackService.DeployAddonsForGame] Failed to create deploy directory for '{installPath}' — {ex.Message}");
             return;
         }
+        bool usesAddonPath = !string.Equals(Path.TrimEndingDirectorySeparator(Path.GetFullPath(deployDir)),
+            Path.TrimEndingDirectorySeparator(Path.GetFullPath(installPath)), StringComparison.OrdinalIgnoreCase);
+        if (usesAddonPath)
+            CrashReporter.Log($"[AddonPackService.DeployAddonsForGame] reshade.ini AddonPath in use — deploying to '{deployDir}'");
 
         // 4. Deploy each addon in the active selection
         var deployedFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -975,7 +983,7 @@ public class AddonPackService : IAddonPackService
                 deployName = packageName;
             }
 
-            var destFile = Path.Combine(installPath, deployName + bitnessExt);
+            var destFile = Path.Combine(deployDir, deployName + bitnessExt);
             try
             {
                 // File.Copy keeps the source's modified time, so same size + time means this copy is already current.
@@ -989,7 +997,7 @@ public class AddonPackService : IAddonPackService
                 {
                     File.Copy(stagingFile, destFile, overwrite: true);
                     deployedFileNames.Add(deployName + bitnessExt);
-                    CrashReporter.Log($"[AddonPackService.DeployAddonsForGame] Deployed '{deployName}{bitnessExt}' to '{installPath}'.");
+                    CrashReporter.Log($"[AddonPackService.DeployAddonsForGame] Deployed '{deployName}{bitnessExt}' to '{deployDir}'.");
                 }
             }
             catch (Exception ex)
@@ -998,21 +1006,26 @@ public class AddonPackService : IAddonPackService
             }
         }
 
-        // Record deployed files in the tracker
+        // Record deployed files in the tracker (keyed by the folder the files are actually in)
         var deployments = LoadDeployments();
-        if (!deployments.TryGetValue(installPath, out var trackedFiles))
+        if (!deployments.TryGetValue(deployDir, out var trackedFiles))
         {
             trackedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            deployments[installPath] = trackedFiles;
+            deployments[deployDir] = trackedFiles;
         }
         foreach (var f in deployedFileNames)
             trackedFiles.Add(f);
+
+        // With AddonPath set, ReShade ignores addons in the game folder. Remove copies RHI
+        // put there earlier for addons that now live in the AddonPath folder.
+        if (usesAddonPath)
+            MoveOutOfGameRoot(deployments, installPath, deployDir, deployedFileNames);
 
         // 5. Remove stale addon files — only remove files that RHI previously deployed to this path
         //    and that are no longer in the active selection. User-placed files are never touched.
         try
         {
-            foreach (var file in Directory.EnumerateFiles(installPath))
+            foreach (var file in Directory.EnumerateFiles(deployDir))
             {
                 var ext = Path.GetExtension(file);
                 if (!ext.Equals(".addon32", StringComparison.OrdinalIgnoreCase) &&
@@ -1073,7 +1086,7 @@ public class AddonPackService : IAddonPackService
                 {
                     File.Delete(file);
                     trackedFiles.Remove(fileName);
-                    CrashReporter.Log($"[AddonPackService.DeployAddonsForGame] Removed stale addon '{fileName}' from '{installPath}'.");
+                    CrashReporter.Log($"[AddonPackService.DeployAddonsForGame] Removed stale addon '{fileName}' from '{deployDir}'.");
 
                 // If DLSS5 Tool addon was removed, also clean up the NR dll via sentinel pattern.
                     if (fileName.Equals("renodx-dlss5.addon64", StringComparison.OrdinalIgnoreCase)
@@ -1506,6 +1519,37 @@ public class AddonPackService : IAddonPackService
     /// Called by components (e.g. Neural Rendering section) that deploy addons directly
     /// without going through DeployAddonsForGame.
     /// </summary>
+    /// <summary>
+    /// Deletes RHI-tracked copies of <paramref name="fileNames"/> from the game folder once they
+    /// have been deployed to the reshade.ini AddonPath folder instead, and untracks them there.
+    /// Only files RHI tracked in the game folder are touched; user-placed files are left alone.
+    /// </summary>
+    internal static void MoveOutOfGameRoot(Dictionary<string, HashSet<string>> deployments,
+        string installPath, string deployDir, IEnumerable<string> fileNames)
+    {
+        if (!deployments.TryGetValue(installPath, out var rootTracked)) return;
+        foreach (var fileName in fileNames)
+        {
+            if (!rootTracked.Contains(fileName)) continue;
+            var oldCopy = Path.Combine(installPath, fileName);
+            try
+            {
+                if (File.Exists(oldCopy) && File.Exists(Path.Combine(deployDir, fileName)))
+                    File.Delete(oldCopy);
+                if (!File.Exists(oldCopy))
+                {
+                    rootTracked.Remove(fileName);
+                    CrashReporter.Log($"[AddonPackService.MoveOutOfGameRoot] Moved '{fileName}' from '{installPath}' to AddonPath '{deployDir}'");
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                CrashReporter.Log($"[AddonPackService.MoveOutOfGameRoot] Could not remove old '{fileName}' from '{installPath}' — {ex.Message}");
+            }
+        }
+        if (rootTracked.Count == 0) deployments.Remove(installPath);
+    }
+
     public static void TrackAddonDeployment(string installPath, string addonFileName)
     {
         try

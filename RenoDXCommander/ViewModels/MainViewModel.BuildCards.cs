@@ -1582,7 +1582,7 @@ public partial class MainViewModel
             // Set cached MFG state for Extras panel (avoid File.Exists on UI thread)
             {
                 var mfgAdaPath = !string.IsNullOrEmpty(installPath)
-                    ? Path.Combine(installPath, "renodx-mfgunlock.addon64")
+                    ? Path.Combine(ModInstallService.GetAddonDeployPath(installPath), "renodx-mfgunlock.addon64")
                     : null;
                 bool mfgAdaInstalled = mfgAdaPath != null && File.Exists(mfgAdaPath);
 

@@ -2383,7 +2383,9 @@ public sealed partial class MainWindow
     private void FaqBack_Click(object sender, RoutedEventArgs e)
         => ViewModel.NavigateToGameViewCommand.Execute(null);
 
-    // ── Available HDR Mods dialog ─────────────────────────────────────────────
+    // ── Available Mods dialog ─────────────────────────────────────────────────
+
+    private const string RenoDxWikiModsUrl = "https://github.com/clshortfuse/renodx/wiki/Mods";
 
     private async void HdrModsListBtn_Click(object sender, RoutedEventArgs e)
     {
@@ -2394,7 +2396,7 @@ public sealed partial class MainWindow
             // ── Search box ────────────────────────────────────────────────────────
             var searchBox = new TextBox
             {
-                PlaceholderText = "Search games…",
+                PlaceholderText = "Search games, or type RenoDX, Luma or Ultra+ to filter…",
                 FontSize        = 13,
                 Margin          = new Thickness(0, 0, 0, 10),
             };
@@ -2420,10 +2422,10 @@ public sealed partial class MainWindow
                 Grid.SetColumn(tb, col);
                 headerGrid.Children.Add(tb);
             }
-            AddHeader("Game",     0);
-            AddHeader("RenoDX",   1);
-            AddHeader("Luma",     2);
-            AddHeader("Download", 3);
+            AddHeader("Game",   0);
+            AddHeader("RenoDX", 1);
+            AddHeader("Luma",   2);
+            AddHeader("Ultra+", 3);
 
             // ── Virtualised ListView — only renders visible rows ──────────────────
             var listView = new ListView
@@ -2438,6 +2440,41 @@ public sealed partial class MainWindow
 
             // Remove default item container padding/hover highlight
             listView.ItemContainerStyle = BuildFlatItemStyle();
+
+            // Adds a ✓ / 🔨 / ✗ cell. Available mods with a valid URL become a link to the mod's page.
+            void AddTick(Grid row, int col, string? status, string? url, string doneColor, string modName)
+            {
+                var tick = new TextBlock
+                {
+                    Text                = status == "Done" ? "✓" : status == "WIP" ? "🔨" : "✗",
+                    FontSize            = 13,
+                    Foreground          = status == "Done" ? UIFactory.GetBrush(doneColor)
+                                        : status == "WIP"  ? UIFactory.GetBrush("#D4A856")
+                                        : UIFactory.Brush(ResourceKeys.TextSecondaryBrush),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment   = VerticalAlignment.Center,
+                };
+
+                FrameworkElement cell = tick;
+                if (status != null && !string.IsNullOrEmpty(url)
+                    && Uri.TryCreate(url, UriKind.Absolute, out var uri)
+                    && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp))
+                {
+                    var link = new HyperlinkButton
+                    {
+                        Content             = tick,
+                        NavigateUri         = uri,
+                        Padding             = new Thickness(6, 0, 6, 0),
+                        MinHeight           = 0,
+                        HorizontalAlignment = HorizontalAlignment.Center,
+                        VerticalAlignment   = VerticalAlignment.Center,
+                    };
+                    ToolTipService.SetToolTip(link, $"Open {modName} page");
+                    cell = link;
+                }
+                Grid.SetColumn(cell, col);
+                row.Children.Add(cell);
+            }
 
             Grid MakeRowGrid(RenoDXCommander.Models.HdrModEntry entry)
             {
@@ -2458,60 +2495,12 @@ public sealed partial class MainWindow
                 Grid.SetColumn(nameBlock, 0);
                 row.Children.Add(nameBlock);
 
-                var rdxTick = new TextBlock
-                {
-                    Text                = entry.RenoDXStatus == "Done" ? "✓" : entry.RenoDXStatus == "WIP" ? "🔨" : "✗",
-                    FontSize            = 13,
-                    Foreground          = entry.RenoDXStatus == "Done" ? UIFactory.GetBrush("#5ECB7D")
-                                        : entry.RenoDXStatus == "WIP"  ? UIFactory.GetBrush("#D4A856")
-                                        : UIFactory.Brush(ResourceKeys.TextSecondaryBrush),
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment   = VerticalAlignment.Center,
-                };
-                Grid.SetColumn(rdxTick, 1);
-                row.Children.Add(rdxTick);
-
-                var lumaTick = new TextBlock
-                {
-                    Text                = entry.LumaStatus == "Done" ? "✓" : entry.LumaStatus == "WIP" ? "🔨" : "✗",
-                    FontSize            = 13,
-                    Foreground          = entry.LumaStatus == "Done" ? UIFactory.GetBrush("#B898E8")
-                                        : entry.LumaStatus == "WIP"  ? UIFactory.GetBrush("#D4A856")
-                                        : UIFactory.Brush(ResourceKeys.TextSecondaryBrush),
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment   = VerticalAlignment.Center,
-                };
-                Grid.SetColumn(lumaTick, 2);
-                row.Children.Add(lumaTick);
-
-                var url = entry.RenoDXUrl ?? entry.LumaUrl;
-                if (!string.IsNullOrEmpty(url) && Uri.TryCreate(url, UriKind.Absolute, out var parsedUri))
-                {
-                    var linkBtn = new HyperlinkButton
-                    {
-                        Content             = "Link",
-                        NavigateUri         = parsedUri,
-                        FontSize            = 11,
-                        Padding             = new Thickness(0),
-                        HorizontalAlignment = HorizontalAlignment.Center,
-                        VerticalAlignment   = VerticalAlignment.Center,
-                    };
-                    Grid.SetColumn(linkBtn, 3);
-                    row.Children.Add(linkBtn);
-                }
-                else
-                {
-                    var noLink = new TextBlock
-                    {
-                        Text                = "—",
-                        FontSize            = 11,
-                        Foreground          = UIFactory.Brush(ResourceKeys.TextTertiaryBrush),
-                        HorizontalAlignment = HorizontalAlignment.Center,
-                        VerticalAlignment   = VerticalAlignment.Center,
-                    };
-                    Grid.SetColumn(noLink, 3);
-                    row.Children.Add(noLink);
-                }
+                // Each tick links to that mod's page. Games covered only by the generic
+                // UE-Extended / Unity addon have no page of their own, so they open the RenoDX wiki.
+                var rdxUrl = entry.HasRenoDX ? (entry.RenoDXUrl ?? RenoDxWikiModsUrl) : null;
+                AddTick(row, 1, entry.RenoDXStatus, rdxUrl, "#5ECB7D", "RenoDX");
+                AddTick(row, 2, entry.LumaStatus, entry.LumaUrl, "#B898E8", "Luma");
+                AddTick(row, 3, entry.HasUltraPlus ? "Done" : null, entry.UltraPlusUrl, "#6FB7E8", "Ultra+");
 
                 return row;
             }
@@ -2530,12 +2519,32 @@ public sealed partial class MainWindow
                 }
             };
 
+            // A leading "renodx", "luma" or "ultra+" keeps only games with that mod;
+            // any text after it still searches by name (e.g. "luma dead").
             void ApplyFilter(string filter)
             {
-                var filtered = string.IsNullOrWhiteSpace(filter)
-                    ? allEntries
-                    : allEntries.Where(e => e.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)).ToList();
-                listView.ItemsSource = filtered;
+                filter = filter.Trim();
+                Func<RenoDXCommander.Models.HdrModEntry, bool>? modFilter = null;
+                var firstWord = filter.Split(' ', 2)[0];
+                if (firstWord.Equals("renodx", StringComparison.OrdinalIgnoreCase))
+                    modFilter = m => m.HasRenoDX;
+                else if (firstWord.Equals("luma", StringComparison.OrdinalIgnoreCase))
+                    modFilter = m => m.HasLuma;
+                else if (firstWord.Equals("ultra+", StringComparison.OrdinalIgnoreCase)
+                      || firstWord.Equals("ultra", StringComparison.OrdinalIgnoreCase)
+                      || firstWord.Equals("ultraplus", StringComparison.OrdinalIgnoreCase))
+                    modFilter = m => m.HasUltraPlus;
+
+                var nameFilter = modFilter != null
+                    ? (filter.Length > firstWord.Length ? filter[firstWord.Length..].Trim() : "")
+                    : filter;
+
+                IEnumerable<RenoDXCommander.Models.HdrModEntry> filtered = allEntries;
+                if (modFilter != null)
+                    filtered = filtered.Where(modFilter);
+                if (!string.IsNullOrEmpty(nameFilter))
+                    filtered = filtered.Where(e => e.Name.Contains(nameFilter, StringComparison.OrdinalIgnoreCase));
+                listView.ItemsSource = filtered.ToList();
             }
 
             // Initial populate
@@ -2546,7 +2555,7 @@ public sealed partial class MainWindow
             // ── Assemble dialog content ───────────────────────────────────────────
             var countLabel = new TextBlock
             {
-                Text       = $"{allEntries.Count} games with HDR mods",
+                Text       = $"{allEntries.Count(m => m.HasRenoDX)} RenoDX Mods, {allEntries.Count(m => m.HasLuma)} Luma Mods, {allEntries.Count(m => m.HasUltraPlus)} Ultra+ Mods",
                 FontSize   = 11,
                 Foreground = UIFactory.Brush(ResourceKeys.TextTertiaryBrush),
                 Margin     = new Thickness(0, 0, 0, 10),
@@ -2566,7 +2575,7 @@ public sealed partial class MainWindow
 
             var dlg = new ContentDialog
             {
-                Title           = "Available HDR Mods",
+                Title           = "Available Mods",
                 Content         = content,
                 CloseButtonText = "Close",
                 XamlRoot        = Content.XamlRoot,

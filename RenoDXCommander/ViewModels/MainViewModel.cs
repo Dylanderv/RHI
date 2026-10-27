@@ -523,13 +523,13 @@ public partial class MainViewModel : ObservableObject
         _crashReporter.Log($"[MergeDbSources] Source=DbOnly — {_allMods.Count} mods from db, {_genericNotes.Count} generic notes from DB Comments");
     }
 
-    // ── HDR Mods List ─────────────────────────────────────────────────────────
+    // ── Available Mods List ───────────────────────────────────────────────────
 
     /// <summary>
-    /// Returns a merged, alphabetically sorted list of all available HDR mods
-    /// from the RenoDX DB and the Luma wiki. Each entry shows whether a game has
-    /// a RenoDX mod, a Luma mod, or both, plus their download URLs.
-    /// Used by the "Available HDR Mods" dialog.
+    /// Returns a merged, alphabetically sorted list of all available mods
+    /// from the RenoDX DB, the Luma wiki and the Ultra+ games list. Each entry shows
+    /// which of RenoDX, Luma and Ultra+ a game has, plus their page URLs.
+    /// Used by the "Available Mods" dialog.
     /// </summary>
     public List<HdrModEntry> GetAllHdrMods()
     {
@@ -601,6 +601,44 @@ public partial class MainViewModel : ObservableObject
                     LumaStatus:  lumaStatus,
                     LumaUrl:     lumaUrl);
             }
+        }
+
+        // Ultra+ mods — matched by normalized name, since Ultra+ titles can differ slightly
+        // (punctuation, trademark symbols) from the RenoDX / Luma names.
+        try
+        {
+            var byNormalized = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var key in dict.Keys)
+            {
+                var norm = _gameDetectionService.NormalizeName(key);
+                if (!string.IsNullOrEmpty(norm)) byNormalized.TryAdd(norm, key);
+            }
+            foreach (var upName in _ultraPlusService.GetAllGameNames())
+            {
+                if (string.IsNullOrWhiteSpace(upName)) continue;
+                var upUrl = _ultraPlusService.ResolveUrl(upName, _manifest);
+                if (string.IsNullOrEmpty(upUrl)) continue;
+                var norm = _gameDetectionService.NormalizeName(upName);
+                if (!string.IsNullOrEmpty(norm) && byNormalized.TryGetValue(norm, out var existingKey))
+                {
+                    dict[existingKey] = dict[existingKey] with { UltraPlusUrl = upUrl };
+                }
+                else if (!dict.ContainsKey(upName))
+                {
+                    dict[upName] = new HdrModEntry(
+                        Name:         upName,
+                        RenoDXStatus: null,
+                        RenoDXUrl:    null,
+                        LumaStatus:   null,
+                        LumaUrl:      null,
+                        UltraPlusUrl: upUrl);
+                    if (!string.IsNullOrEmpty(norm)) byNormalized.TryAdd(norm, upName);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _crashReporter.Log($"[MainViewModel.GetAllHdrMods] Ultra+ merge failed — {ex.Message}");
         }
 
         return dict.Values

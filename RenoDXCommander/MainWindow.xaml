@@ -57,7 +57,7 @@
                             BorderBrush="{StaticResource AccentTealBorderBrush}" BorderThickness="1"
                             CornerRadius="8" Padding="12,7" FontSize="12"
                             ToolTipService.ToolTip="Quick Start Guide"/>
-                    <Button x:Name="HdrModsListBtn" Content="Available HDR Mods"
+                    <Button x:Name="HdrModsListBtn" Content="Available Mods"
                             Click="HdrModsListBtn_Click"
                             IsEnabled="False"
                             Background="{StaticResource SurfaceInputBrush}" Foreground="{StaticResource AccentTealBrush}"

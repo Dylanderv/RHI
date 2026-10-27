@@ -190,7 +190,7 @@ public static class AddonPopupHelper
             // Extras button conflict — MFG Ada Unlock blocked when already installed directly via Extras
             bool extrasInstalledConflict = entry.SectionId.Equals("mfgunlock", StringComparison.OrdinalIgnoreCase)
                 && !string.IsNullOrEmpty(installPath)
-                && File.Exists(Path.Combine(installPath, "renodx-mfgunlock.addon64"));
+                && File.Exists(Path.Combine(ModInstallService.GetAddonDeployPath(installPath), "renodx-mfgunlock.addon64"));
             if (extrasInstalledConflict) peerIsSelected = true;
 
             var toggle = new ToggleSwitch
