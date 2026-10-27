@@ -171,7 +171,7 @@ public sealed partial class MainWindow : Window
         // There may be a tiny WinUI layout adjustment on first render, but the lock
         // prevents the user from resizing the window freely.
         // Set the title bar icon (unpackaged apps need this explicitly)
-        var exeDir = Path.GetDirectoryName(Environment.ProcessPath) ?? AppContext.BaseDirectory;
+        var exeDir = AppPaths.ExeDir;
         AppWindow.SetIcon(Path.Combine(exeDir, "icon.ico"));
 
         // Dark title bar — match our theme

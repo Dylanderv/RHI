@@ -290,7 +290,7 @@ public partial class MainViewModel
                         try
                         {
                             var clrMdPath = System.IO.Path.Combine(
-                                System.IO.Path.GetDirectoryName(Environment.ProcessPath) ?? AppContext.BaseDirectory,
+                                AppPaths.ExeDir,
                                 "Microsoft.Diagnostics.Runtime.dll");
                             if (!System.IO.File.Exists(clrMdPath)) { CrashReporter.LogSync($"[Heartbeat.Stack] ClrMD not found at '{clrMdPath}'"); return; }
                             var clrMdAsm = System.Reflection.Assembly.LoadFrom(clrMdPath);

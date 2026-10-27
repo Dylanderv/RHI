@@ -87,8 +87,18 @@ public class GitHubETagCache
     /// </summary>
     public void Invalidate(string url)
     {
+        _checkedUtc.TryRemove(url, out _);
         if (_cache.TryRemove(url, out _)) { _savedUtc.TryRemove(url, out _); Persist(); }
     }
+
+    // Several services read the same URL around the same time (e.g. the rhi-repo release list).
+    // Calls that overlap share one request, and an answer is reused for FreshFor.
+    private readonly ConcurrentDictionary<string, Lazy<Task<string?>>> _inFlight = new();
+    private readonly ConcurrentDictionary<string, DateTime> _checkedUtc = new();
+    private static readonly TimeSpan FreshFor = TimeSpan.FromSeconds(60);
+
+    private static bool IsApiUrl(string url) =>
+        url.StartsWith("https://api.github.com/", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Sends a GET request with ETag caching. If the resource hasn't changed,
@@ -96,8 +106,19 @@ public class GitHubETagCache
     /// </summary>
     public async Task<string?> GetWithETagAsync(HttpClient http, string url, string? userAgent = null)
     {
-        // ── Rate-limit guard: return cached body or null if rate-limited ──
-        if (_rateLimited)
+        if (_checkedUtc.TryGetValue(url, out var checkedAt) && DateTime.UtcNow - checkedAt < FreshFor
+            && _cache.TryGetValue(url, out var fresh) && fresh.body != null)
+            return fresh.body;
+
+        var lazy = _inFlight.GetOrAdd(url, u => new Lazy<Task<string?>>(() => FetchAsync(http, u, userAgent)));
+        try { return await lazy.Value.ConfigureAwait(false); }
+        finally { _inFlight.TryRemove(new KeyValuePair<string, Lazy<Task<string?>>>(url, lazy)); }
+    }
+
+    private async Task<string?> FetchAsync(HttpClient http, string url, string? userAgent)
+    {
+        // ── Rate-limit guard (api.github.com only): return cached body or null ──
+        if (_rateLimited && IsApiUrl(url))
         {
             if (_cache.TryGetValue(url, out var stale) && stale.body != null)
                 return stale.body;
@@ -140,6 +161,7 @@ public class GitHubETagCache
         if (response.StatusCode == HttpStatusCode.NotModified && cached.body != null)
         {
             CrashReporter.Log($"[GitHubETagCache] 304 Not Modified for {TruncateUrl(url)}");
+            _checkedUtc[url] = DateTime.UtcNow;
             return cached.body;
         }
 
@@ -155,7 +177,7 @@ public class GitHubETagCache
                 bool actuallyRateLimited = remaining == "0";
                 var hasAuthHeader = GitHubTokenHandler.WillAuthorize(request.RequestUri);
 
-                if (actuallyRateLimited && !_rateLimited)
+                if (actuallyRateLimited && !_rateLimited && IsApiUrl(url))
                 {
                     _rateLimited = true;
                     CrashReporter.Log($"[GitHubETagCache] GitHub API rate limited (X-RateLimit-Remaining=0) for {TruncateUrl(url)} — authenticated={hasAuthHeader}");
@@ -186,6 +208,7 @@ public class GitHubETagCache
         {
             _cache[url] = (etag, body);
             _savedUtc[url] = DateTime.UtcNow;
+            _checkedUtc[url] = DateTime.UtcNow;
             Persist();
         }
 

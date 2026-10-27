@@ -124,7 +124,7 @@ public static class VulkanLayerService
             CrashReporter.Log("[VulkanLayerService.InstallLayer] Copied ReShade64.dll to layer directory");
 
             // 3. Copy bundled manifest JSON (falls back to generated manifest if bundled file missing)
-            var bundledManifest = Path.Combine(AppContext.BaseDirectory, LayerManifestName);
+            var bundledManifest = AppPaths.InExeDir(LayerManifestName);
             if (File.Exists(bundledManifest))
             {
                 File.Copy(bundledManifest, LayerManifestPath, overwrite: true);

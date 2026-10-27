@@ -826,7 +826,7 @@ public partial class DragDropHandler
         {
             try
             {
-                var response = await s_httpClient.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead);
+                using var response = await s_httpClient.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead);
 
                 if (!response.IsSuccessStatusCode)
                 {

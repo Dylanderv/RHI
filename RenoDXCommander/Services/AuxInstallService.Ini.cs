@@ -1723,7 +1723,7 @@ public partial class AuxInstallService
             var url = EngineIniFilesBaseUrl + Uri.EscapeDataString(filename);
 
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-            var response = await http.GetAsync(url, cts.Token).ConfigureAwait(false);
+            using var response = await http.GetAsync(url, cts.Token).ConfigureAwait(false);
 
             if (!response.IsSuccessStatusCode)
             {

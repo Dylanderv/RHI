@@ -132,7 +132,7 @@ public class WikiService : IWikiService
         try
         {
             var req  = new HttpRequestMessage(HttpMethod.Head, url);
-            var resp = await _http.SendAsync(req).ConfigureAwait(false);
+            using var resp = await _http.SendAsync(req).ConfigureAwait(false);
             if (!resp.IsSuccessStatusCode) return null;
             return resp.Content.Headers.LastModified?.UtcDateTime
                 ?? resp.Headers.Date?.UtcDateTime;

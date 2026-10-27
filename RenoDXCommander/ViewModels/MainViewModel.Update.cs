@@ -347,7 +347,7 @@ public partial class MainViewModel
     {
         try
         {
-            var path = Path.Combine(AppContext.BaseDirectory, "RHI_PatchNotes.md");
+            var path = AppPaths.InExeDir("RHI_PatchNotes.md");
             if (!File.Exists(path)) return "Patch notes file not found.";
 
             var lines = File.ReadAllLines(path);

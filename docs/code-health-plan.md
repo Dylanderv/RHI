@@ -88,13 +88,13 @@ Measured from logs on a 102-game library.
 - [x] **Duplicate init on cache launch.** Done for the one that mattered: the pre-manifest addon update check in the MainWindow constructor is removed (it skipped manifest addons and doubled Addons.ini + GitHub API calls); the first-launch full-scan path now runs the check after the manifest is applied. Left as-is: Nexus/PCGW/UWFix/Ultra+ cache loads run twice but cost milliseconds (fresh caches, local files).
   - Nexus, PCGW, UWFix and Ultra+ start twice, and the addon check runs twice.
   - Add a once-per-launch guard to each.
-- [~] **GitHub API usage.** Done: `GitHubETagCache` is saved to `github_etag_cache.json` (30-day expiry, batched writes) so first calls each launch are conditional. Still to do: route the ~10 bypassing call sites through it; share the rhi-repo releases list; scope `_rateLimited`. Note: `InvalidateAll` has no callers.
+- [x] **GitHub API usage.** Done: `GitHubETagCache` is saved to `github_etag_cache.json` (30-day expiry, batched writes) so first calls each launch are conditional. Then (27 Oct): every release/README/commits call goes through it (DLSS Enabler, DOF Fix, RDX5 + Feeder/Bridge, DLSSG 20/30, UAL, Luma; the forceRefresh bypasses in NR Cost Scaler/RTX 40 MFG/RTX Encore removed, since an ETag request is always current); overlapping calls for one URL share a request and answers are reused for 60 s (covers the rhi-repo list); `_rateLimited` only applies to api.github.com. Only `/user` auth checks stay direct. Note: `InvalidateAll` has no callers.
   - The ETag cache is memory-only. Save it to disk so each launch doesn't start from zero.
   - About 10 call sites bypass `GitHubETagCache`. Route them through it.
   - The `RankFTW/rhi-repo` releases list is fetched 3× by separate services. Fetch it once and share it.
   - The `_rateLimited` flag also blocks `raw.githubusercontent.com`, which isn't API-limited. Scope it to `api.github.com`.
   - User logs show 35 hits of the 60/hour limit.
-- [~] **HTTP hygiene.** Done: 30 s timeout for all `GitHubETagCache` API calls (returns cached body or null). Still to do: other small API calls outside the cache; ~21 undisposed responses.
+- [x] **HTTP hygiene.** Done: 30 s timeout for all `GitHubETagCache` API calls (returns cached body or null). Then: the remaining API calls now use the cache (30 s timeout); the undisposed responses have `using` (Nexus 429 retry and RenoDX fallback attempts dispose the earlier response).
   - The 10-minute global `HttpClient` timeout also applies to small API calls. Use a short per-request timeout (`CancellationTokenSource`) for API calls, and keep the long timeout for downloads.
   - About 21 `HttpResponseMessage`s are never disposed. Add `using`.
 - [ ] **UI-thread work.** `LoadCacheAndBuildCardsAsync` and the saves do file and JSON work on the UI thread. Move it to `Task.Run`.
@@ -114,11 +114,10 @@ Measured from logs on a 102-game library.
 - [-] **`ReShade.Vulkan.ini` is USED** (the audit was wrong): seeded to `iniseshade.vulkan.ini` and used as the Vulkan reshade.ini template (`AuxInstallService.EnsureInisDir`, `.Ini.cs`). Referenced in lowercase, which case-sensitive searches miss.
 - [-] `FeatureFlags.DlssNr` kept as a remote kill switch.
 - [-] `tools/pcgw-fetch` kept: the PCGW Editor calls it.
-- [ ] **Decide:** `AutoHdrLaunchToggle` (launch code reads it, nothing can set it).
 - [x] Manifest `optiScalerDllOverrides` never worked (its loader was never called). Removed from the app and the Manifest Editor, along with the unused per-game Auto HDR launch toggle (the card's HDR button covers it).
-- [ ] Found while removing: `SaveNameMappingsImmediate` and `PcgwService.FlushCacheAsync` had no callers despite comments saying to call them at rename/shutdown (removed). Check shutdown still flushes what it should (`FlushPendingSave` handles settings).
+- [x] Found while removing: `SaveNameMappingsImmediate` and `PcgwService.FlushCacheAsync` had no callers despite comments saying to call them at rename/shutdown (removed). Checked: shutdown flushes settings (`FlushPendingSaves`); PCGW's 500 ms debounced cache write can be lost at exit, which only means those lookups are fetched again.
 - [ ] Skipped: `DlssPresetService._nativeSetSettingLegacy` (set from NVAPI lookup), `UeExtendedWarningDismissed` setting key (no reader now), constructor parameters that no longer feed a field.
-- [ ] **Duplicates to merge:** three `Find7Zip` copies + inline `AppContext.BaseDirectory` 7-Zip paths; `IsLegacyVersion` twice; several version comparers. Also `EnsureInisDir` seeds templates from `AppContext.BaseDirectory` (CLAUDE.md says use `Environment.ProcessPath`).
+- [x] **Duplicates to merge:** Done: `AppPaths` (`ExeDir`, `InExeDir`, `Bundled7Zip`, `Find7Zip`) replaces the three finders and every `AppContext.BaseDirectory` path; `MainViewModel.IsLegacyVersion` delegates to `AuxInstallService`. The "version comparers" are one-line `Version.TryParse` calls, not worth merging. Was: three `Find7Zip` copies + inline `AppContext.BaseDirectory` 7-Zip paths; `IsLegacyVersion` twice; several version comparers. Also `EnsureInisDir` seeds templates from `AppContext.BaseDirectory` (CLAUDE.md says use `Environment.ProcessPath`).
 
 ---
 

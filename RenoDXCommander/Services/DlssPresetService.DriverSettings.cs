@@ -413,7 +413,7 @@ public partial class DlssPresetService
         try
         {
             var scriptPath = Path.Combine(Path.GetTempPath(), "rhi_latency_set.ps1");
-            var nvApiPath = Path.Combine(AppContext.BaseDirectory, "NvAPIWrapper.dll");
+            var nvApiPath = AppPaths.InExeDir("NvAPIWrapper.dll");
 
             // Use raw NVAPI P/Invoke from PowerShell — NvAPIWrapper can't write these settings
             var script = $@"
@@ -1052,7 +1052,7 @@ $destroyDel.Invoke($hSession) | Out-Null
 
             // ReBAR Feature requires elevation — use elevated helper
             var scriptPath = Path.Combine(Path.GetTempPath(), "rhi_global_rebar_enable.ps1");
-            var nvApiPath = Path.Combine(AppContext.BaseDirectory, "NvAPIWrapper.dll");
+            var nvApiPath = AppPaths.InExeDir("NvAPIWrapper.dll");
 
             string scriptBody;
             if (enabled)

@@ -158,7 +158,7 @@ public class WindowStateManager
         try
         {
             var helperPath = Path.Combine(
-                Path.GetDirectoryName(Environment.ProcessPath) ?? AppContext.BaseDirectory,
+                AppPaths.ExeDir,
                 "RHI.DropHelper.exe");
             if (!File.Exists(helperPath))
             {

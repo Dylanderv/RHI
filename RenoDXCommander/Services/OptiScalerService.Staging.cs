@@ -138,7 +138,7 @@ public partial class OptiScalerService
             progress?.Report(("Extracting OptiScaler...", 75));
             try
             {
-                var sevenZipExe = Find7ZipExe();
+                var sevenZipExe = AppPaths.Find7Zip();
                 if (sevenZipExe == null)
                 {
                     CrashReporter.Log("[OptiScalerService.EnsureStagingAsync] 7-Zip not found — cannot extract archive");
@@ -262,53 +262,6 @@ public partial class OptiScalerService
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Finds 7z.exe on the system. Checks the bundled copy next to the app exe first,
-    /// then common install locations, then PATH.
-    /// </summary>
-    private static string? Find7ZipExe()
-    {
-        // Check bundled 7z.exe next to the app exe first
-        var bundled = Path.Combine(AppContext.BaseDirectory, "7z.exe");
-        if (File.Exists(bundled))
-            return bundled;
-
-        // Check common install locations
-        var candidates = new[]
-        {
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "7-Zip", "7z.exe"),
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "7-Zip", "7z.exe"),
-        };
-
-        foreach (var path in candidates)
-        {
-            if (File.Exists(path))
-                return path;
-        }
-
-        // Check PATH
-        try
-        {
-            var psi = new ProcessStartInfo
-            {
-                FileName = "7z.exe",
-                Arguments = "--help",
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardOutput = true,
-            };
-            using var proc = Process.Start(psi);
-            if (proc != null)
-            {
-                proc.WaitForExit(5000);
-                return "7z.exe";
-            }
-        }
-        catch (Exception) { /* 7z.exe not on PATH is the normal case; caller handles null */ }
-
-        return null;
-    }
 
     /// <inheritdoc />
     public async Task CheckForUpdateAsync()
@@ -1315,7 +1268,7 @@ public partial class OptiScalerService
         progress?.Report(($"Extracting OptiScaler Nightly {buildDate}...", 75));
         try
         {
-            var sevenZipExe = Find7ZipExe();
+            var sevenZipExe = AppPaths.Find7Zip();
             if (sevenZipExe == null)
             {
                 CrashReporter.Log("[OptiScalerService.DownloadNightlyBuild] 7-Zip not found");

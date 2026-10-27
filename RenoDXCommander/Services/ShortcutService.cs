@@ -86,7 +86,7 @@ public static class ShortcutService
     {
         try
         {
-            var exeDir     = Path.GetDirectoryName(Environment.ProcessPath) ?? AppContext.BaseDirectory;
+            var exeDir     = AppPaths.ExeDir;
             var rhiExePath = Path.Combine(exeDir, "RHI.exe");
             var desktop    = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
             var safeName   = string.Concat(gameName.Split(Path.GetInvalidFileNameChars()));

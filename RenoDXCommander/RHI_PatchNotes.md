@@ -21,6 +21,8 @@ To connect: open **Settings → GitHub API** and click **Sign in with GitHub**. 
 - Fixed the addon update check running twice at startup, using extra GitHub requests.
 - Fixed a slow or stuck GitHub request being able to hold up the startup update checks for minutes. GitHub requests now give up after 30 seconds.
 - Fixed RHI forgetting GitHub responses each time it closed, so every launch re-fetched unchanged data and counted against GitHub's hourly request limit. Unchanged data is now confirmed without using up the limit.
+- Fixed DLSS Enabler, DOF Fix, DLSS 5, DLSS FG 20/30, Ultimate ASI Loader and Luma update checks downloading the full release list every time. They now use the same cached checks as everything else (which don't count towards GitHub's request limit when you're signed in), and features that read the same release list now share one request.
+- Fixed reaching GitHub's request limit also blocking RHI's game database downloads, which don't count towards that limit.
 
 **DLSS / Streamline version display**
 - Fixed swapping to an older DLSS or Streamline version showing the newer version number in the UI immediately after the swap. The background scan running concurrently could capture the pre-swap version and overwrite the display on merge. The merge now re-reads versions from disk so the displayed version always reflects what's actually installed.

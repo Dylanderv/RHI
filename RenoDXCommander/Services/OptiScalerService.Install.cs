@@ -25,7 +25,7 @@ public partial class OptiScalerService
             : dlssInputs
                 ? $"OptiScaler{suffix}.amd-dlss.ini"
                 : $"OptiScaler{suffix}.amd-nodlss.ini";
-        return Path.Combine(AppContext.BaseDirectory, fileName);
+        return AppPaths.InExeDir(fileName);
     }
 
     public async Task<AuxInstalledRecord?> InstallAsync(

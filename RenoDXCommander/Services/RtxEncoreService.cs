@@ -364,23 +364,8 @@ public class RtxEncoreService
         try
         {
             string? json;
-            if (forceRefresh)
-            {
-                using var req = new HttpRequestMessage(HttpMethod.Get, GitHubApiUrl);
-                req.Headers.Add("User-Agent", "RHI");
-                req.Headers.Add("Accept", "application/vnd.github+json");
-                using var resp = await _http.SendAsync(req).ConfigureAwait(false);
-                if (!resp.IsSuccessStatusCode)
-                {
-                    _crashReporter.Log($"[RtxEncoreService.FetchRelease] HTTP {(int)resp.StatusCode}");
-                    return (null, null);
-                }
-                json = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-            }
-            else
-            {
-                json = await _etagCache.GetWithETagAsync(_http, GitHubApiUrl).ConfigureAwait(false);
-            }
+            // An ETag request always returns current data, so forced checks use the cache too.
+            json = await _etagCache.GetWithETagAsync(_http, GitHubApiUrl).ConfigureAwait(false);
             if (json == null) return (null, null);
 
             using var doc  = JsonDocument.Parse(json);

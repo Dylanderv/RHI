@@ -178,7 +178,7 @@ public partial class DlssPresetService
 
             // Sync legacy REBAR_FEATURE_ID + REBAR_EXPR_MODES_ID + REBAR_SIZE_LIMIT_ID via PS helper
             // (base profile writes for these require elevation on most systems)
-            var nvApiPath  = Path.Combine(AppContext.BaseDirectory, "NvAPIWrapper.dll");
+            var nvApiPath  = AppPaths.InExeDir("NvAPIWrapper.dll");
             var scriptPath = Path.Combine(Path.GetTempPath(), "rhi_global_rebar_enable_mode.ps1");
 
             string featureBlock = mode == 2
@@ -403,7 +403,7 @@ $session.Save()
             // Write a temporary script that sets the NVAPI values
             var scriptPath = Path.Combine(Path.GetTempPath(), "rhi_rebar_set.ps1");
             var exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName ?? "";
-            var nvApiPath = Path.Combine(AppContext.BaseDirectory, "NvAPIWrapper.dll");
+            var nvApiPath = AppPaths.InExeDir("NvAPIWrapper.dll");
 
             var script = $@"
 Add-Type -Path '{nvApiPath.Replace("'", "''")}'

@@ -297,6 +297,7 @@ public class NexusDownloadService
             if (request.Content != null)
                 retry.Content = request.Content;
 
+            response.Dispose();
             response = await _http.SendAsync(retry, cancellationToken).ConfigureAwait(false);
         }
 

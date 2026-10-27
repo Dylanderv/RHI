@@ -57,6 +57,7 @@ public class UltimateAsiLoaderService
         { "dxgi.dll", "d3d11.dll", "d3d12.dll", "d3d9.dll" };
 
     private readonly HttpClient      _http;
+    private readonly GitHubETagCache _etagCache;
     private readonly ICrashReporter  _crashReporter;
     private readonly IAuxInstallService _auxInstaller;
 
@@ -65,9 +66,10 @@ public class UltimateAsiLoaderService
     private readonly string _versionFile32;
     private readonly string _versionFile64;
 
-    public UltimateAsiLoaderService(HttpClient http, ICrashReporter crashReporter, IAuxInstallService auxInstaller)
+    public UltimateAsiLoaderService(HttpClient http, ICrashReporter crashReporter, IAuxInstallService auxInstaller, GitHubETagCache etagCache)
     {
         _http          = http;
+        _etagCache = etagCache;
         _crashReporter = crashReporter;
         _auxInstaller  = auxInstaller;
 
@@ -413,17 +415,12 @@ public class UltimateAsiLoaderService
     {
         try
         {
-            using var req = new HttpRequestMessage(HttpMethod.Get, GitHubApiUrl);
-            req.Headers.Add("User-Agent", "RHI");
-            req.Headers.Add("Accept", "application/vnd.github+json");
-            using var resp = await _http.SendAsync(req).ConfigureAwait(false);
-            if (!resp.IsSuccessStatusCode)
+            var json = await _etagCache.GetWithETagAsync(_http, GitHubApiUrl).ConfigureAwait(false);
+            if (json == null)
             {
-                _crashReporter.Log($"[UltimateAsiLoaderService] GitHub API returned {resp.StatusCode}");
+                _crashReporter.Log($"[UltimateAsiLoaderService] GitHub API request failed");
                 return (null, null, null);
             }
-
-            var json = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
             using var doc = JsonDocument.Parse(json);
             var root = doc.RootElement;
 

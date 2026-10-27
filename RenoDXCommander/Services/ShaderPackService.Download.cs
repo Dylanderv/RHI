@@ -167,7 +167,7 @@ public partial class ShaderPackService
 
         try
         {
-            var dlResp = await _http.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead);
+            using var dlResp = await _http.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead);
             if (!dlResp.IsSuccessStatusCode)
             {
                 CrashReporter.Log($"[ShaderPackService.EnsurePackAsync] [{pack.Id}] Download failed ({dlResp.StatusCode})");
@@ -520,7 +520,7 @@ public partial class ShaderPackService
         {
             var req = new HttpRequestMessage(HttpMethod.Head, pack.Url);
             req.Headers.Add("User-Agent", "RHI");
-            var resp = await _http.SendAsync(req);
+            using var resp = await _http.SendAsync(req);
             if (!resp.IsSuccessStatusCode) return "unknown";
             var etag = resp.Headers.ETag?.Tag;
             var modified = resp.Content.Headers.LastModified?.ToString("O");

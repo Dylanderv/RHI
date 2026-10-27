@@ -456,7 +456,7 @@ public partial class DlssStreamlineService
             var tempZip = Path.Combine(cacheDir, "download.zip.tmp");
 
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(120));
-            var response = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cts.Token).ConfigureAwait(false);
+            using var response = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cts.Token).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
                 CrashReporter.Log($"[DlssStreamlineService.DownloadAndCacheAsync] Download failed ({response.StatusCode}) for {url}");
@@ -510,7 +510,7 @@ public partial class DlssStreamlineService
             var tempZip = Path.Combine(cacheDir, "download.zip.tmp");
 
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(120));
-            var response = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cts.Token).ConfigureAwait(false);
+            using var response = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cts.Token).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
                 CrashReporter.Log($"[DlssStreamlineService.DownloadAndCacheStreamlineAsync] Download failed ({response.StatusCode}) for {url}");

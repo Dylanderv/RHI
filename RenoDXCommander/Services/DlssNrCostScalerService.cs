@@ -129,23 +129,8 @@ public class DlssNrCostScalerService
         try
         {
             string? json;
-            if (forceRefresh)
-            {
-                // Bypass ETag cache — make a direct request to get current data
-                var req = new HttpRequestMessage(HttpMethod.Get, GitHubApiUrl);
-                req.Headers.Add("User-Agent", "RHI");
-                var resp = await _http.SendAsync(req).ConfigureAwait(false);
-                if (!resp.IsSuccessStatusCode)
-                {
-                    _crashReporter.Log($"[DlssNrCostScalerService.FetchRelease] HTTP {(int)resp.StatusCode}");
-                    return (null, null);
-                }
-                json = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-            }
-            else
-            {
-                json = await _etagCache.GetWithETagAsync(_http, GitHubApiUrl).ConfigureAwait(false);
-            }
+            // An ETag request always returns current data, so forced checks use the cache too.
+            json = await _etagCache.GetWithETagAsync(_http, GitHubApiUrl).ConfigureAwait(false);
             if (json == null) return (null, null);
             using var doc = JsonDocument.Parse(json);
             var root = doc.RootElement;

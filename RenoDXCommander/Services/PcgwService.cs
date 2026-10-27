@@ -248,7 +248,7 @@ public class PcgwService : IPcgwService
             if (!string.IsNullOrEmpty(storedETag))
                 req.Headers.TryAddWithoutValidation("If-None-Match", storedETag);
 
-            var resp = await _http.SendAsync(req).ConfigureAwait(false);
+            using var resp = await _http.SendAsync(req).ConfigureAwait(false);
 
             if (resp.StatusCode == System.Net.HttpStatusCode.NotModified)
             {
@@ -583,7 +583,7 @@ public class PcgwService : IPcgwService
             var url = $"https://www.pcgamingwiki.com/w/api.php?action=opensearch&search={encodedName}&limit=5&format=json";
 
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-            var response = await _http.GetAsync(url, cts.Token).ConfigureAwait(false);
+            using var response = await _http.GetAsync(url, cts.Token).ConfigureAwait(false);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -939,7 +939,7 @@ public class PcgwService : IPcgwService
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
 
-            var response = await _http.GetAsync(wikiUrl, cts.Token).ConfigureAwait(false);
+            using var response = await _http.GetAsync(wikiUrl, cts.Token).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
                 if ((int)response.StatusCode == 429)

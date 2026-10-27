@@ -521,7 +521,7 @@ public partial class MainViewModel
                     // Check remote size
                     try
                     {
-                        var headResp = await _http.SendAsync(new HttpRequestMessage(HttpMethod.Head, mod.SnapshotUrl)).ConfigureAwait(false);
+                        using var headResp = await _http.SendAsync(new HttpRequestMessage(HttpMethod.Head, mod.SnapshotUrl)).ConfigureAwait(false);
                         if (headResp.IsSuccessStatusCode && headResp.Content.Headers.ContentLength.HasValue)
                         {
                             var localSize = new FileInfo(localFile).Length;

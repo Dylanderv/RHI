@@ -119,14 +119,7 @@ public partial class MainViewModel
     }
 
     /// <summary>Returns true if the channel value is a legacy version string (not null, not "Stable", not "Nightly", not "Custom").</summary>
-    public static bool IsLegacyVersion(string? channel)
-    {
-        if (string.IsNullOrEmpty(channel)) return false;
-        if (string.Equals(channel, "Stable", StringComparison.OrdinalIgnoreCase)) return false;
-        if (string.Equals(channel, "Nightly", StringComparison.OrdinalIgnoreCase)) return false;
-        if (string.Equals(channel, "Custom", StringComparison.OrdinalIgnoreCase)) return false;
-        return true;
-    }
+    public static bool IsLegacyVersion(string? channel) => AuxInstallService.IsLegacyVersion(channel);
 
     /// <summary>
     /// Resolves the effective ReShade channel for a game.

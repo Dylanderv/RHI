@@ -20,12 +20,14 @@ public class LumaService : ILumaService
         "RHI", "luma_installed.json");
 
     private readonly HttpClient _http;
+    private readonly GitHubETagCache _etagCache;
     private readonly ShaderPackService _shaderPackService;
     private readonly IAuxFileService _auxFileService;
 
     public LumaService(HttpClient http, IAuxFileService auxFileService, GitHubETagCache etagCache)
     {
         _http = http;
+        _etagCache = etagCache;
         _auxFileService = auxFileService;
         _shaderPackService = new ShaderPackService(http, etagCache);
     }
@@ -1019,17 +1021,12 @@ public class LumaService : ILumaService
         var result = new List<LumaMod>();
         try
         {
-            var request = new HttpRequestMessage(HttpMethod.Get, LumaReleasesListApi);
-            request.Headers.UserAgent.ParseAdd("RHI");
-            request.Headers.Accept.ParseAdd("application/vnd.github+json");
-            var response = await _http.SendAsync(request).ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode)
+            var json = await _etagCache.GetWithETagAsync(_http, LumaReleasesListApi).ConfigureAwait(false);
+            if (json == null)
             {
-                CrashReporter.Log($"[LumaService.FetchReleasesModsAsync] GitHub API {response.StatusCode}");
+                CrashReporter.Log($"[LumaService.FetchReleasesModsAsync] GitHub API request failed");
                 return result;
             }
-
-            var json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
             using var doc = System.Text.Json.JsonDocument.Parse(json);
 
             // Use the first (latest) release only
@@ -1174,16 +1171,12 @@ public class LumaService : ILumaService
     {
         try
         {
-            var request = new HttpRequestMessage(HttpMethod.Get, LumaReleasesApi);
-            request.Headers.UserAgent.ParseAdd("RHI");
-            request.Headers.Accept.ParseAdd("application/vnd.github+json");
-            var response = await _http.SendAsync(request).ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode)
+            var json = await _etagCache.GetWithETagAsync(_http, LumaReleasesApi).ConfigureAwait(false);
+            if (json == null)
             {
-                CrashReporter.Log($"[LumaService.GetLatestBuildNumberAsync] GitHub API returned {response.StatusCode}");
+                CrashReporter.Log($"[LumaService.GetLatestBuildNumberAsync] GitHub API request failed");
                 return 0;
             }
-            var json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
             using var doc = System.Text.Json.JsonDocument.Parse(json);
             var tagName = doc.RootElement.GetProperty("tag_name").GetString() ?? "";
             // Tag format: "latest-428"
@@ -1355,7 +1348,7 @@ public class LumaService : ILumaService
             try
             {
                 Directory.CreateDirectory(tempDir);
-                var sevenZipExe = Path.Combine(AppContext.BaseDirectory, "7z.exe");
+                var sevenZipExe = AppPaths.Bundled7Zip;
                 var psi = new System.Diagnostics.ProcessStartInfo(sevenZipExe, $"x \"{archivePath}\" -o\"{tempDir}\" -y")
                 {
                     UseShellExecute = false,

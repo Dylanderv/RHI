@@ -419,7 +419,7 @@ public partial class DxvkService
             Directory.CreateDirectory(tempExtractDir);
 
             // Extract using bundled 7z.exe
-            var sevenZipPath = Path.Combine(AppContext.BaseDirectory, "7z.exe");
+            var sevenZipPath = AppPaths.Bundled7Zip;
             var psi = new ProcessStartInfo
             {
                 FileName = sevenZipPath,
@@ -513,7 +513,7 @@ public partial class DxvkService
         IProgress<(string message, double percent)>? progress,
         double pctStart, double pctEnd)
     {
-        var dlResp = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
+        using var dlResp = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
         if (!dlResp.IsSuccessStatusCode)
         {
             CrashReporter.Log($"[DxvkService.DownloadFileAsync] Download failed ({dlResp.StatusCode})");
@@ -556,7 +556,7 @@ public partial class DxvkService
 
         try
         {
-            var sevenZipExe = Find7ZipExe();
+            var sevenZipExe = AppPaths.Find7Zip();
             if (sevenZipExe == null)
             {
                 CrashReporter.Log("[DxvkService.ExtractZipToStagingAsync] 7-Zip not found — cannot extract archive");
@@ -601,7 +601,7 @@ public partial class DxvkService
 
         try
         {
-            var sevenZipExe = Find7ZipExe();
+            var sevenZipExe = AppPaths.Find7Zip();
             if (sevenZipExe == null)
             {
                 CrashReporter.Log("[DxvkService.ExtractTarGzToStagingAsync] 7-Zip not found — cannot extract archive");
@@ -761,53 +761,6 @@ public partial class DxvkService
         // Return the first file found in the output directory
         var files = Directory.GetFiles(outputDir, "*", SearchOption.AllDirectories);
         return files.Length > 0 ? files[0] : outputDir;
-    }
-
-    /// <summary>
-    /// Finds 7z.exe on the system. Checks the bundled copy next to the app exe first,
-    /// then common install locations, then PATH.
-    /// </summary>
-    private static string? Find7ZipExe()
-    {
-        // Check bundled 7z.exe next to the app exe first
-        var bundled = Path.Combine(AppContext.BaseDirectory, "7z.exe");
-        if (File.Exists(bundled))
-            return bundled;
-
-        // Check common install locations
-        var candidates = new[]
-        {
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "7-Zip", "7z.exe"),
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "7-Zip", "7z.exe"),
-        };
-
-        foreach (var path in candidates)
-        {
-            if (File.Exists(path))
-                return path;
-        }
-
-        // Check PATH
-        try
-        {
-            var psi = new ProcessStartInfo
-            {
-                FileName = "7z.exe",
-                Arguments = "--help",
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardOutput = true,
-            };
-            using var proc = Process.Start(psi);
-            if (proc != null)
-            {
-                proc.WaitForExit(5000);
-                return "7z.exe";
-            }
-        }
-        catch (Exception) { /* 7z.exe not on PATH is the normal case; caller handles null */ }
-
-        return null;
     }
 
     /// <inheritdoc />

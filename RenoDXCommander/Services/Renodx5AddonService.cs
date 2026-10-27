@@ -29,6 +29,7 @@ public class Renodx5AddonService
         "https://api.github.com/repos/RankFTW/rhi-repo/releases?per_page=100";
 
     private readonly HttpClient _http;
+    private readonly GitHubETagCache _etagCache;
     private readonly ICrashReporter _crashReporter;
     private readonly IGameLibraryService _gameLibraryService;
     private readonly IDlssStreamlineService _dlssStreamlineService;
@@ -41,9 +42,10 @@ public class Renodx5AddonService
         HttpClient http,
         ICrashReporter crashReporter,
         IGameLibraryService gameLibraryService,
-        IDlssStreamlineService dlssStreamlineService)
+        IDlssStreamlineService dlssStreamlineService, GitHubETagCache etagCache)
     {
         _http                  = http;
+        _etagCache = etagCache;
         _crashReporter         = crashReporter;
         _gameLibraryService    = gameLibraryService;
         _dlssStreamlineService = dlssStreamlineService;
@@ -666,17 +668,12 @@ public class Renodx5AddonService
     {
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, GitHubApiUrl);
-            request.Headers.Add("Accept", "application/vnd.github+json");
-
-            using var response = await _http.SendAsync(request).ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode)
+            var json = await _etagCache.GetWithETagAsync(_http, GitHubApiUrl).ConfigureAwait(false);
+            if (json == null)
             {
-                _crashReporter.Log($"[Renodx5AddonService] GitHub API returned {response.StatusCode}");
+                _crashReporter.Log($"[Renodx5AddonService] GitHub API request failed");
                 return (null, null);
             }
-
-            var json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
             using var doc = JsonDocument.Parse(json);
 
             var candidates = new List<(string version, string downloadUrl, Version parsed)>();
@@ -817,18 +814,13 @@ public class Renodx5AddonService
 
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, GitHubApiUrl);
-            request.Headers.Add("Accept", "application/vnd.github+json");
-
-            using var response = await _http.SendAsync(request).ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode)
+            var json = await _etagCache.GetWithETagAsync(_http, GitHubApiUrl).ConfigureAwait(false);
+            if (json == null)
             {
-                _crashReporter.Log($"[Renodx5AddonService.FetchAndCacheAvailableVersionsAsync] GitHub API {response.StatusCode} — using stale cache");
+                _crashReporter.Log($"[Renodx5AddonService.FetchAndCacheAvailableVersionsAsync] GitHub API request failed — using stale cache");
                 LoadVersionsFromCache();
                 return;
             }
-
-            var json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
             using var doc = JsonDocument.Parse(json);
 
             var dlss5 = new List<(string Version, string DownloadUrl, System.Version Parsed)>();
@@ -1013,15 +1005,12 @@ public class Renodx5AddonService
         var result = new List<(string Version, string DownloadUrl, System.Version Parsed, bool IsPreRelease)>();
         try
         {
-            using var req = new HttpRequestMessage(HttpMethod.Get, apiUrl);
-            req.Headers.Add("Accept", "application/vnd.github+json");
-            using var resp = await _http.SendAsync(req).ConfigureAwait(false);
-            if (!resp.IsSuccessStatusCode)
+            var json = await _etagCache.GetWithETagAsync(_http, apiUrl).ConfigureAwait(false);
+            if (json == null)
             {
-                _crashReporter.Log($"[Renodx5AddonService.FetchSimpleRepoVersionsAsync] {apiUrl} → {resp.StatusCode}");
+                _crashReporter.Log($"[Renodx5AddonService.FetchSimpleRepoVersionsAsync] {apiUrl} request failed");
                 return result.Select(e => (e.Version, e.DownloadUrl)).ToList();
             }
-            var json = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
             using var doc = JsonDocument.Parse(json);
             foreach (var release in doc.RootElement.EnumerateArray())
             {

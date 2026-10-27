@@ -105,7 +105,7 @@ public class ModInstallService : IModInstallService
         try
         {
             using var headCts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(10));
-            var headResp = await _http.SendAsync(
+            using var headResp = await _http.SendAsync(
                 new HttpRequestMessage(HttpMethod.Head, resolvedUrl), headCts.Token);
             if (headResp.IsSuccessStatusCode)
                 remoteSize = headResp.Content.Headers.ContentLength;
@@ -186,6 +186,7 @@ public class ModInstallService : IModInstallService
                 tried.Add(url);
                 try
                 {
+                    response?.Dispose();
                     response = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
                     if (response.IsSuccessStatusCode) break;
                 }
@@ -193,8 +194,12 @@ public class ModInstallService : IModInstallService
             }
 
             if (response == null || !response.IsSuccessStatusCode)
+            {
+                response?.Dispose();
                 throw new HttpRequestException(
                     $"Failed to download snapshot. Tried: {string.Join(", ", tried)}");
+            }
+            using var downloadResponse = response;
 
             // Capture size from actual download response if HEAD didn't return one
             if (!remoteSize.HasValue)
@@ -298,7 +303,7 @@ public class ModInstallService : IModInstallService
         try
         {
             var req  = new HttpRequestMessage(HttpMethod.Head, checkUrl);
-            var resp = await _http.SendAsync(req);
+            using var resp = await _http.SendAsync(req);
 
             if (resp.IsSuccessStatusCode)
             {
