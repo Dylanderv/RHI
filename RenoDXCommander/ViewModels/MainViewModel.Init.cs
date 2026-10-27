@@ -519,6 +519,26 @@ public partial class MainViewModel
             // Apply manifest-driven shader pack and addon pack overrides
             (_shaderPackService as ShaderPackService)?.ApplyManifestOverrides(_manifest);
             (_addonPackService as AddonPackService)?.ApplyManifestOverrides(_manifest);
+
+            // First launch without a saved library takes this full-scan path instead of the
+            // background scan, so run the addon update check here (after the manifest is applied,
+            // like RunBackgroundScanAndMergeAsync does). Not on Refresh: that would add GitHub API
+            // calls on every Refresh, and the startup check already covered this session.
+            if (!forceRescan)
+            {
+                var manifestForAddons = _manifest;
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _addonPackService.EnsureLatestAsync();
+                        (_addonPackService as AddonPackService)?.ApplyManifestOverrides(manifestForAddons);
+                        await _addonPackService.CheckAndUpdateAllAsync();
+                    }
+                    catch (Exception ex) { _crashReporter.Log($"[MainViewModel.InitializeAsync] Addon update check failed — {ex.Message}"); }
+                });
+            }
+
             DlssPresetService.ApplyManifestPresets(_manifest);
             _dlssPresetService.ApplyManifestProfileConfig(_manifest);
             FeatureFlags.ApplyManifest(_manifest?.FeatureFlags);

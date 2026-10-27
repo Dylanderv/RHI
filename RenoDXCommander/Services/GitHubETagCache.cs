@@ -8,11 +8,71 @@ namespace RenoDXCommander.Services;
 /// Caches GitHub API ETag values and response bodies to enable conditional requests.
 /// When a cached ETag is sent via If-None-Match and the resource hasn't changed,
 /// GitHub returns 304 Not Modified which doesn't count against the rate limit.
-/// Cache is in-memory only (session-scoped) — no disk persistence needed.
+/// The cache is saved to %LocalAppData%\RHI\github_etag_cache.json so the first requests of
+/// each launch are conditional too (previously every launch started empty and spent rate limit
+/// re-fetching unchanged release lists). Entries unused for 30 days are dropped on load.
 /// </summary>
 public class GitHubETagCache
 {
     private readonly ConcurrentDictionary<string, (string etag, string body)> _cache = new();
+
+    private static readonly string CachePath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "RHI", "github_etag_cache.json");
+
+    private static readonly TimeSpan MaxAge = TimeSpan.FromDays(30);
+    private static readonly TimeSpan ApiTimeout = TimeSpan.FromSeconds(30);
+
+    /// <summary>Persisted form of one cache entry.</summary>
+    public sealed class SavedEntry
+    {
+        public string ETag { get; set; } = "";
+        public string Body { get; set; } = "";
+        public DateTime SavedUtc { get; set; }
+    }
+
+    // Last-saved time per URL, so old entries can be dropped.
+    private readonly ConcurrentDictionary<string, DateTime> _savedUtc = new();
+
+    public GitHubETagCache()
+    {
+        var saved = SafeJsonFile.Read<Dictionary<string, SavedEntry>>(CachePath, out _);
+        if (saved == null) return;
+        var cutoff = DateTime.UtcNow - MaxAge;
+        foreach (var (url, e) in saved)
+        {
+            if (e.SavedUtc < cutoff || string.IsNullOrEmpty(e.ETag) || e.Body == null) continue;
+            _cache[url] = (e.ETag, e.Body);
+            _savedUtc[url] = e.SavedUtc;
+        }
+        CrashReporter.Log($"[GitHubETagCache] Loaded {_cache.Count} saved ETag(s)");
+    }
+
+    // Startup fires many API calls at once; batch their saves into one write 2 s after the last change.
+    private System.Threading.Timer? _persistTimer;
+    private readonly object _persistLock = new();
+
+    private void Persist()
+    {
+        lock (_persistLock)
+        {
+            _persistTimer ??= new System.Threading.Timer(_ => WriteNow(), null, Timeout.Infinite, Timeout.Infinite);
+            _persistTimer.Change(TimeSpan.FromSeconds(2), Timeout.InfiniteTimeSpan);
+        }
+    }
+
+    private void WriteNow()
+    {
+        var snapshot = _cache.ToArray().ToDictionary(
+            kv => kv.Key,
+            kv => new SavedEntry
+            {
+                ETag = kv.Value.etag,
+                Body = kv.Value.body,
+                SavedUtc = _savedUtc.TryGetValue(kv.Key, out var t) ? t : DateTime.UtcNow,
+            });
+        SafeJsonFile.Write(CachePath, snapshot, "GitHubETagCache.Persist");
+    }
 
     /// <summary>Session-scoped flag — set when GitHub returns 403 (rate limited).</summary>
     private volatile bool _rateLimited;
@@ -25,10 +85,18 @@ public class GitHubETagCache
     /// <see cref="GetWithETagAsync"/> call sends an unconditional GET.
     /// Use when you know the remote content has changed (e.g. on Refresh).
     /// </summary>
-    public void Invalidate(string url) => _cache.TryRemove(url, out _);
+    public void Invalidate(string url)
+    {
+        if (_cache.TryRemove(url, out _)) { _savedUtc.TryRemove(url, out _); Persist(); }
+    }
 
     /// <summary>Removes all cached ETags and bodies, forcing unconditional GETs on all URLs.</summary>
-    public void InvalidateAll() => _cache.Clear();
+    public void InvalidateAll()
+    {
+        _cache.Clear();
+        _savedUtc.Clear();
+        Persist();
+    }
 
     /// <summary>
     /// Sends a GET request with ETag caching. If the resource hasn't changed,
@@ -46,7 +114,7 @@ public class GitHubETagCache
         }
 
         // Build request
-        var request = new HttpRequestMessage(HttpMethod.Get, url);
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.UserAgent.Add(new ProductInfoHeaderValue("RHI", "1.0"));
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
 
@@ -62,7 +130,20 @@ public class GitHubETagCache
         if (_cache.TryGetValue(url, out var cached))
             request.Headers.IfNoneMatch.Add(new EntityTagHeaderValue(cached.etag));
 
-        var response = await http.SendAsync(request).ConfigureAwait(false);
+        // API responses are small: give up after 30 s instead of the shared client's 10-minute
+        // download timeout, so one stuck call can't hold up startup checks.
+        using var timeout = new CancellationTokenSource(ApiTimeout);
+        HttpResponseMessage response;
+        try
+        {
+            response = await http.SendAsync(request, timeout.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (timeout.IsCancellationRequested)
+        {
+            CrashReporter.Log($"[GitHubETagCache] Timed out after {ApiTimeout.TotalSeconds:F0}s for {TruncateUrl(url)}");
+            return cached.body; // stale body if we have one, else null
+        }
+        using var _ = response;
 
         if (response.StatusCode == HttpStatusCode.NotModified && cached.body != null)
         {
@@ -105,12 +186,16 @@ public class GitHubETagCache
             return null; // Let caller handle the error
         }
 
-        var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+        var body = await response.Content.ReadAsStringAsync(timeout.Token).ConfigureAwait(false);
 
         // Cache the ETag and body for next time
         var etag = response.Headers.ETag?.Tag;
         if (etag != null)
+        {
             _cache[url] = (etag, body);
+            _savedUtc[url] = DateTime.UtcNow;
+            Persist();
+        }
 
         return body;
     }

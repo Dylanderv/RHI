@@ -110,13 +110,15 @@ public sealed partial class MainWindow : Window
             crashReporter.Log("[MainWindow] CacheAllShaders=false — skipping bulk shader download");
         }
         ViewModel.SetShaderPackReadyTask(shaderTask);
-        // Fire-and-forget: fetch addon list and check for updates in the background
+        // Fire-and-forget: fetch the addon list early so the Addons UI has it.
+        // The update check (CheckAndUpdateAllAsync) is NOT run here: the manifest isn't loaded
+        // yet, so manifest-driven addons would be skipped, and the init path runs a full check
+        // once the manifest is applied (background scan, or the first-launch full scan).
         Task.Run(async () =>
         {
             try
             {
                 await _addonPackService.EnsureLatestAsync();
-                await _addonPackService.CheckAndUpdateAllAsync();
             }
             catch (Exception ex) { crashReporter.Log($"[MainWindow] Addon pack init failed — {ex.Message}"); }
         }).SafeFireAndForget("MainWindow.AddonPack");

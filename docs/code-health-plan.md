@@ -85,20 +85,20 @@ Measured from logs on a 102-game library.
   - RenoDX snapshot addons are downloaded in full just to compare with the installed copy. Use ETag or Content-Length, or the release asset's `updated_at`.
   - ReShade nightly: the `nightly.link` HEAD returns 404, so 2.4 MB downloads every launch. Compare Content-Length from a ranged GET instead (see the CLAUDE.md pitfall).
   - UAL: fixed by the per-bitness flag in 1.2.
-- [ ] **Duplicate init on cache launch.**
+- [x] **Duplicate init on cache launch.** Done for the one that mattered: the pre-manifest addon update check in the MainWindow constructor is removed (it skipped manifest addons and doubled Addons.ini + GitHub API calls); the first-launch full-scan path now runs the check after the manifest is applied. Left as-is: Nexus/PCGW/UWFix/Ultra+ cache loads run twice but cost milliseconds (fresh caches, local files).
   - Nexus, PCGW, UWFix and Ultra+ start twice, and the addon check runs twice.
   - Add a once-per-launch guard to each.
-- [ ] **GitHub API usage.**
+- [~] **GitHub API usage.** Done: `GitHubETagCache` is saved to `github_etag_cache.json` (30-day expiry, batched writes) so first calls each launch are conditional. Still to do: route the ~10 bypassing call sites through it; share the rhi-repo releases list; scope `_rateLimited`. Note: `InvalidateAll` has no callers.
   - The ETag cache is memory-only. Save it to disk so each launch doesn't start from zero.
   - About 10 call sites bypass `GitHubETagCache`. Route them through it.
   - The `RankFTW/rhi-repo` releases list is fetched 3× by separate services. Fetch it once and share it.
   - The `_rateLimited` flag also blocks `raw.githubusercontent.com`, which isn't API-limited. Scope it to `api.github.com`.
   - User logs show 35 hits of the 60/hour limit.
-- [ ] **HTTP hygiene.**
+- [~] **HTTP hygiene.** Done: 30 s timeout for all `GitHubETagCache` API calls (returns cached body or null). Still to do: other small API calls outside the cache; ~21 undisposed responses.
   - The 10-minute global `HttpClient` timeout also applies to small API calls. Use a short per-request timeout (`CancellationTokenSource`) for API calls, and keep the long timeout for downloads.
   - About 21 `HttpResponseMessage`s are never disposed. Add `using`.
 - [ ] **UI-thread work.** `LoadCacheAndBuildCardsAsync` and the saves do file and JSON work on the UI thread. Move it to `Task.Run`.
-- [ ] **Heartbeat and logging.**
+- [~] **Heartbeat and logging.** Done: "UI responsive" logged on last-action change or once a minute. Still to do: reentrancy guard (each failing tick past the 2nd schedules another restart task; read the UI Freeze section first), keep one StreamWriter open, thread/level fields.
   - The heartbeat logs "UI responsive" every second (about 3,600 lines/hour). Log only on state change or every N minutes.
   - The heartbeat has no reentrancy guard.
   - `CrashReporter.Log` opens the file once per line.

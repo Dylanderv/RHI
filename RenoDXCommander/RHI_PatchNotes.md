@@ -18,6 +18,9 @@ To connect: open **Settings → GitHub API** and click **Sign in with GitHub**. 
 
 **Background downloads**
 - Fixed the ReShade nightly build being downloaded again on every launch even when it hadn't changed.
+- Fixed the addon update check running twice at startup, using extra GitHub requests.
+- Fixed a slow or stuck GitHub request being able to hold up the startup update checks for minutes. GitHub requests now give up after 30 seconds.
+- Fixed RHI forgetting GitHub responses each time it closed, so every launch re-fetched unchanged data and counted against GitHub's hourly request limit. Unchanged data is now confirmed without using up the limit.
 
 **DLSS / Streamline version display**
 - Fixed swapping to an older DLSS or Streamline version showing the newer version number in the UI immediately after the swap. The background scan running concurrently could capture the pre-swap version and overwrite the display on merge. The merge now re-reads versions from disk so the displayed version always reflects what's actually installed.
@@ -73,6 +76,7 @@ To connect: open **Settings → GitHub API** and click **Sign in with GitHub**. 
 - Fixed many errors being silently ignored instead of written to the log, making problems easier to diagnose from your session logs.
 - Fixed some unexpected errors in buttons and settings showing a crash report instead of being logged and recovered from.
 - Fixed shader pack deployment re-reading the whole settings file once per pack for every game.
+- Fixed session logs filling up with a "UI responsive" line every second.
 
 ### Manifest Updates
 

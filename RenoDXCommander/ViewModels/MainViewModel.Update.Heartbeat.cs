@@ -6,6 +6,10 @@ namespace RenoDXCommander.ViewModels;
 
 public partial class MainViewModel
 {
+    // Heartbeat log throttle (only touched by the heartbeat timer callback).
+    private string? _heartbeatLoggedAction;
+    private long _heartbeatLoggedAtTicks;
+
     /// <summary>
     /// Starts a 1-second heartbeat timer. On each tick it posts a High-priority probe to the UI thread.
     /// Two consecutive failures trigger the freeze diagnostics and fast-restart path (~5s total).
@@ -76,7 +80,18 @@ public partial class MainViewModel
                     // UI is responsive — reset counters
                     System.Threading.Interlocked.Exchange(ref _consecutiveProbeFailures, 0);
                     System.Threading.Interlocked.Exchange(ref _freezeStackCaptured, 0);
-                    _crashReporter.Log($"[Heartbeat] UI responsive — last action: {_lastUiAction}");
+                    // Log when the last UI action changes, plus once a minute — not every second
+                    // (~3,600 lines/hour buried real events). Repeated rebuilds of the same panel
+                    // still show up as repeated [UIAction] lines.
+                    var lastAction = _lastUiAction;
+                    var nowTicks = DateTime.UtcNow.Ticks;
+                    if (!string.Equals(lastAction, _heartbeatLoggedAction, StringComparison.Ordinal)
+                        || nowTicks - _heartbeatLoggedAtTicks >= TimeSpan.TicksPerMinute)
+                    {
+                        _heartbeatLoggedAction = lastAction;
+                        _heartbeatLoggedAtTicks = nowTicks;
+                        _crashReporter.Log($"[Heartbeat] UI responsive — last action: {lastAction}");
+                    }
                     return;
                 }
 
