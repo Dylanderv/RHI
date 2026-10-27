@@ -76,9 +76,6 @@ public partial class DetailPanelBuilder
         // Store header row so BuildNvidiaProfileBody can append/update the summary
         _nvHeaderRow = nvHeaderRow;
 
-        // _nvBodyPanel is no longer used by BuildDriverProfileSection (it now owns its own panel)
-        _nvBodyPanel = null;
-
         // Capture card state before the background scan
         var gameName    = card.GameName;
         var installPath = card.InstallPath ?? "";

@@ -104,30 +104,6 @@ public sealed partial class MainWindow
         }
     }
 
-    private async void UpdateAllRenoDx_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            await ViewModel.UpdateAllRenoDxAsync();
-        }
-        catch (Exception ex)
-        {
-            CrashReporter.Log($"[MainWindow.UpdateAllRenoDx_Click] Unhandled error — {ex.Message}\n{ex.StackTrace}");
-        }
-    }
-
-    private async void UpdateAllReShade_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            await ViewModel.UpdateAllReShadeAsync();
-        }
-        catch (Exception ex)
-        {
-            CrashReporter.Log($"[MainWindow.UpdateAllReShade_Click] Unhandled error — {ex.Message}\n{ex.StackTrace}");
-        }
-    }
-
     internal void InstallUlButton_Click(object sender, RoutedEventArgs e)
         => _installEventHandler.InstallUlButton_Click(sender, e);
 
@@ -155,40 +131,6 @@ public sealed partial class MainWindow
     internal void UninstallRefButton_Click(object sender, RoutedEventArgs e)
         => _installEventHandler.UninstallRefButton_Click(sender, e);
 
-    private void UlIniButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is not FrameworkElement { Tag: GameCardViewModel card }) return;
-        if (string.IsNullOrEmpty(card.InstallPath)) return;
-        try
-        {
-            AuxInstallService.CopyUlIni(card.InstallPath);
-            card.UlActionMessage = "✅ relimiter.ini copied to game folder.";
-        }
-        catch (Exception ex)
-        {
-            card.UlActionMessage = $"❌ {ex.Message}";
-        }
-    }
-
-    private void DcIniButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is not FrameworkElement { Tag: GameCardViewModel card }) return;
-        if (string.IsNullOrEmpty(card.InstallPath)) return;
-        try
-        {
-            AuxInstallService.CopyDcIni(card.InstallPath);
-            card.DcActionMessage = "✅ DisplayCommander.ini copied to game folder.";
-            card.FadeMessage(m => card.DcActionMessage = m, card.DcActionMessage);
-        }
-        catch (Exception ex)
-        {
-            card.DcActionMessage = $"❌ {ex.Message}";
-        }
-    }
-
-    private void CopyOsIniButton_Click(object sender, RoutedEventArgs e)
-        => _installEventHandler.CopyOsIniButton_Click(sender, e);
-
     // ── DXVK event handlers ──────────────────────────────────────────────────
 
     internal async void InstallDxvkButton_Click(object sender, RoutedEventArgs e)
@@ -214,12 +156,6 @@ public sealed partial class MainWindow
     {
         if (sender is not FrameworkElement { Tag: GameCardViewModel card }) return;
         ViewModel.UninstallDxvk(card);
-    }
-
-    private void CopyDxvkConfButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is not FrameworkElement { Tag: GameCardViewModel card }) return;
-        ViewModel.CopyDxvkConf(card);
     }
 
     internal async void DxvkInfoButton_Click(object sender, RoutedEventArgs e)
@@ -274,32 +210,6 @@ public sealed partial class MainWindow
 
     private void ReShadeChannelCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
         => _settingsHandler.ReShadeChannelCombo_SelectionChanged(sender, e);
-
-    private async void DetailOsStatus_PointerPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
-    {
-        try
-        {
-            var card = ViewModel.SelectedGame;
-            if (card == null) return;
-
-            if (card.IsOsInstalled)
-            {
-                var variant = ViewModel.GetOsVariant(card.GameName, card.Source ?? "");
-                var url = variant == "DlssNr"
-                    ? "https://github.com/wilsjo2/OptiScaler-DLSSNR-PreSR-Multipass/releases"
-                    : variant == "F5"
-                    ? "https://github.com/janblade/OptiScaler-F5-DLSSNR-Multipass/releases"
-                    : variant == "Nightly"
-                    ? "https://github.com/optiscaler/OptiScaler-nightly/releases"
-                    : "https://github.com/optiscaler/OptiScaler/wiki";
-                await Windows.System.Launcher.LaunchUriAsync(new Uri(url));
-            }
-        }
-        catch (Exception ex)
-        {
-            CrashReporter.Log($"[MainWindow.DetailOsStatus_PointerPressed] Unhandled error — {ex.Message}\n{ex.StackTrace}");
-        }
-    }
 
     private async void DetailUlStatus_PointerPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
     {
@@ -714,20 +624,11 @@ public sealed partial class MainWindow
         }
     }
 
-    private void SwitchToLumaButton_Click(object sender, RoutedEventArgs e)
-        => _installEventHandler.SwitchToLumaButton_Click(sender, e);
-
     private void InstallLumaButton_Click(object sender, RoutedEventArgs e)
         => _installEventHandler.InstallLumaButton_Click(sender, e);
 
     private void UninstallLumaButton_Click(object sender, RoutedEventArgs e)
         => _installEventHandler.UninstallLumaButton_Click(sender, e);
-
-    private void UeExtendedFlyoutItem_Click(object sender, RoutedEventArgs e)
-        => _installEventHandler.UeExtendedFlyoutItem_Click(sender, e);
-
-    internal async Task ShowUeExtendedWarningAsync(GameCardViewModel card)
-        => await _dialogService.ShowUeExtendedWarningAsync(card);
 
     internal void HideButton_Click(object sender, RoutedEventArgs e)
     {
@@ -823,28 +724,6 @@ public sealed partial class MainWindow
                 }
             }
 
-            // ── Auto HDR Windows HDR launch toggle ──
-            // Only fires for games that have per-game Auto HDR enabled AND the launch toggle set to "On".
-            // If the user already has Windows HDR on, we note that so we don't disable it on exit.
-            bool shouldToggleAutoHdrHdr = _gameNameService.AutoHdrGames.Contains(gameName)
-                && _gameNameService.AutoHdrLaunchToggle.TryGetValue(gameName, out var ahtv)
-                && string.Equals(ahtv, "On", StringComparison.OrdinalIgnoreCase);
-            bool autoHdrHdrWasAlreadyOn = false;
-            if (shouldToggleAutoHdrHdr)
-            {
-                autoHdrHdrWasAlreadyOn = HdrToggleService.IsHdrEnabled();
-                if (!autoHdrHdrWasAlreadyOn)
-                {
-                    var autoHdrTargets = ViewModel.Settings.HdrTargetDisplays;
-                    HdrToggleService.EnableHdr(autoHdrTargets.Count > 0 ? autoHdrTargets : null);
-                    _crashReporter.Log($"[MainWindow.LaunchGameAsync] Auto HDR HDR toggle: enabled Windows HDR for '{gameName}'");
-                }
-                else
-                {
-                    _crashReporter.Log($"[MainWindow.LaunchGameAsync] Auto HDR HDR toggle: HDR was already on for '{gameName}' — won't disable on exit");
-                }
-            }
-
             // 1. User override (absolute path)
             if (_gameNameService.LaunchExeOverrides.TryGetValue(gameName, out var userExe)
                 && !string.IsNullOrEmpty(userExe) && File.Exists(userExe))
@@ -856,7 +735,7 @@ public sealed partial class MainWindow
                     UseShellExecute = true,
                     WorkingDirectory = System.IO.Path.GetDirectoryName(userExe) ?? "",
                 });
-                MonitorProcessForHdr(proc, shouldToggleHdr, hdrWasAlreadyOn, gameName, card.Source, card.InstallPath, hdrTargets, shouldToggleRes, resolutionToRestore, shouldToggleAutoHdrHdr, autoHdrHdrWasAlreadyOn);
+                MonitorProcessForHdr(proc, shouldToggleHdr, hdrWasAlreadyOn, gameName, card.Source, card.InstallPath, hdrTargets, shouldToggleRes, resolutionToRestore);
                 return;
             }
 
@@ -909,7 +788,7 @@ public sealed partial class MainWindow
                     _crashReporter.Log($"[MainWindow.LaunchGameAsync] Launching '{gameName}' via Steam: {steamUri}");
                     System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(steamUri) { UseShellExecute = true });
                 }
-                MonitorProcessForHdr(null, shouldToggleHdr, hdrWasAlreadyOn, gameName, card.Source, card.InstallPath, hdrTargets, shouldToggleRes, resolutionToRestore, shouldToggleAutoHdrHdr, autoHdrHdrWasAlreadyOn);
+                MonitorProcessForHdr(null, shouldToggleHdr, hdrWasAlreadyOn, gameName, card.Source, card.InstallPath, hdrTargets, shouldToggleRes, resolutionToRestore);
                 return;
             }
 
@@ -919,7 +798,7 @@ public sealed partial class MainWindow
                 var epicUri = $"com.epicgames.launcher://apps/{card.DetectedGame.EpicAppName}?action=launch&silent=true";
                 _crashReporter.Log($"[MainWindow.LaunchGameAsync] Launching '{gameName}' via Epic protocol: {epicUri}");
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(epicUri) { UseShellExecute = true });
-                MonitorProcessForHdr(null, shouldToggleHdr, hdrWasAlreadyOn, gameName, card.Source, card.InstallPath, hdrTargets, shouldToggleRes, resolutionToRestore, shouldToggleAutoHdrHdr, autoHdrHdrWasAlreadyOn);
+                MonitorProcessForHdr(null, shouldToggleHdr, hdrWasAlreadyOn, gameName, card.Source, card.InstallPath, hdrTargets, shouldToggleRes, resolutionToRestore);
                 return;
             }
 
@@ -931,7 +810,7 @@ public sealed partial class MainWindow
                 var uri = $"shell:AppsFolder\\{card.DetectedGame.XboxAumid}";
                 _crashReporter.Log($"[MainWindow.LaunchGameAsync] Launching '{gameName}' via Xbox AUMID: {card.DetectedGame.XboxAumid}");
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(uri) { UseShellExecute = true });
-                MonitorProcessForHdr(null, shouldToggleHdr, hdrWasAlreadyOn, gameName, card.Source, card.InstallPath, hdrTargets, shouldToggleRes, resolutionToRestore, shouldToggleAutoHdrHdr, autoHdrHdrWasAlreadyOn);
+                MonitorProcessForHdr(null, shouldToggleHdr, hdrWasAlreadyOn, gameName, card.Source, card.InstallPath, hdrTargets, shouldToggleRes, resolutionToRestore);
                 return;
             }
 
@@ -961,7 +840,7 @@ public sealed partial class MainWindow
                         UseShellExecute = true,
                         WorkingDirectory = installPath,
                     });
-                    MonitorProcessForHdr(proc, shouldToggleHdr, hdrWasAlreadyOn, gameName, card.Source, card.InstallPath, hdrTargets, shouldToggleRes, resolutionToRestore, shouldToggleAutoHdrHdr, autoHdrHdrWasAlreadyOn);
+                    MonitorProcessForHdr(proc, shouldToggleHdr, hdrWasAlreadyOn, gameName, card.Source, card.InstallPath, hdrTargets, shouldToggleRes, resolutionToRestore);
                     return;
                 }
             }
@@ -992,7 +871,7 @@ public sealed partial class MainWindow
     /// Monitors a launched process and disables HDR when it exits (if we enabled it).
     /// For protocol launches (Steam/Epic URL) where proc is null, polls for the game exe by name.
     /// </summary>
-    private void MonitorProcessForHdr(System.Diagnostics.Process? proc, bool shouldToggle, bool wasAlreadyOn, string gameName, string? store, string? installPath = null, List<uint>? hdrTargets = null, bool shouldToggleRes = false, ResolutionToggleService.DisplayResolution? resolutionToRestore = null, bool shouldToggleAutoHdrHdr = false, bool autoHdrHdrWasAlreadyOn = false)
+    private void MonitorProcessForHdr(System.Diagnostics.Process? proc, bool shouldToggle, bool wasAlreadyOn, string gameName, string? store, string? installPath = null, List<uint>? hdrTargets = null, bool shouldToggleRes = false, ResolutionToggleService.DisplayResolution? resolutionToRestore = null)
     {
         // Find the card to set IsRunning — match both name and store for multi-store support
         var card = ViewModel.AllCards.FirstOrDefault(c =>
@@ -1050,11 +929,10 @@ public sealed partial class MainWindow
                     }
 
                     if (shouldToggle) HdrToggleService.DisableHdr(hdrTargets);
-                    if (shouldToggleAutoHdrHdr && !autoHdrHdrWasAlreadyOn) HdrToggleService.DisableHdr(hdrTargets);
                     if (shouldToggleRes && resolutionToRestore != null) ResolutionToggleService.SetResolution(resolutionToRestore);
                     else if (shouldToggleRes) ResolutionToggleService.RestoreResolution();
                     DispatcherQueue?.TryEnqueue(() => { if (card != null) card.IsRunning = false; });
-                    _crashReporter.Log($"[MainWindow.MonitorProcess] '{gameName}' exited{(shouldToggle ? " — HDR disabled" : "")}{(shouldToggleAutoHdrHdr && !autoHdrHdrWasAlreadyOn ? " — Auto HDR HDR disabled" : "")}{(shouldToggleRes ? " — resolution restored" : "")}");
+                    _crashReporter.Log($"[MainWindow.MonitorProcess] '{gameName}' exited{(shouldToggle ? " — HDR disabled" : "")}{(shouldToggleRes ? " — resolution restored" : "")}");
                 }
                 catch (Exception ex)
                 {
@@ -1107,11 +985,10 @@ public sealed partial class MainWindow
                     _crashReporter.Log($"[MainWindow.MonitorProcess] '{gameName}' — found process '{gameProc.ProcessName}' (PID {gameProc.Id}), waiting for exit...");
                     await gameProc.WaitForExitAsync();
                     if (shouldToggle) HdrToggleService.DisableHdr(hdrTargets);
-                    if (shouldToggleAutoHdrHdr && !autoHdrHdrWasAlreadyOn) HdrToggleService.DisableHdr(hdrTargets);
                     if (shouldToggleRes && resolutionToRestore != null) ResolutionToggleService.SetResolution(resolutionToRestore);
                     else if (shouldToggleRes) ResolutionToggleService.RestoreResolution();
                     DispatcherQueue?.TryEnqueue(() => { if (card != null) card.IsRunning = false; });
-                    _crashReporter.Log($"[MainWindow.MonitorProcess] '{gameName}' exited{(shouldToggle ? " — HDR disabled" : "")}{(shouldToggleAutoHdrHdr && !autoHdrHdrWasAlreadyOn ? " — Auto HDR HDR disabled" : "")}{(shouldToggleRes ? " — resolution restored" : "")}");
+                    _crashReporter.Log($"[MainWindow.MonitorProcess] '{gameName}' exited{(shouldToggle ? " — HDR disabled" : "")}{(shouldToggleRes ? " — resolution restored" : "")}");
                 }
                 catch (Exception ex)
                 {

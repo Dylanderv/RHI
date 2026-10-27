@@ -748,25 +748,6 @@ public class PcgwService : IPcgwService
         return Task.CompletedTask;
     }
 
-    /// <inheritdoc />
-    public Task FlushCacheAsync()
-    {
-        Timer? timer;
-        lock (_saveLock)
-        {
-            timer = _saveDebounceTimer;
-            _saveDebounceTimer = null;
-        }
-
-        if (timer != null)
-        {
-            timer.Dispose();
-            WriteCacheToDisk();
-        }
-
-        return Task.CompletedTask;
-    }
-
     /// <summary>
     /// Performs the actual disk write with retry logic via <see cref="FileHelper"/>.
     /// </summary>
@@ -1171,16 +1152,6 @@ public class PcgwService : IPcgwService
         {
             return null;
         }
-    }
-
-    private static bool IsPlatformExcluded(string text)
-    {
-        var n = text.ToLowerInvariant();
-        if (n.Contains("os x") || n.Contains("macos") || n.Contains("mac os")) return true;
-        if (System.Text.RegularExpressions.Regex.IsMatch(n, @"\blinux\b.*\bonly\b")) return true;
-        if (System.Text.RegularExpressions.Regex.IsMatch(n, @"\bonly\b.*\blinux\b")) return true;
-        if (n.Contains("linux default") || n.Contains("linux only")) return true;
-        return false;
     }
 
     /// <summary>

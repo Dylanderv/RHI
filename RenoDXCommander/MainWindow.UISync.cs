@@ -244,8 +244,6 @@ public sealed partial class MainWindow
         _detailPanelBuilder.PopulateDetailPanel(card);
     }
 
-    private void UpdateDetailComponentRows(GameCardViewModel card) => _detailPanelBuilder.UpdateDetailComponentRows(card);
-
     private void DetailCard_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) => _detailPanelBuilder.DetailCard_PropertyChanged(sender, e);
 
     internal void BuildOverridesPanel(GameCardViewModel card)
@@ -253,23 +251,6 @@ public sealed partial class MainWindow
         ViewModel.SetLastUiAction($"BuildOverridesPanel({card.GameName})");
         _lastBuiltCard = card;
         _detailPanelBuilder.BuildOverridesPanel(card);
-    }
-
-    internal void UpdateLumaToggleStyle(bool isLumaMode)
-    {
-        DetailLumaToggleText.Text = isLumaMode ? "Luma ON" : "Luma OFF";
-        if (isLumaMode)
-        {
-            DetailLumaToggle.Background = Brush(ResourceKeys.AccentGreenBgBrush);
-            DetailLumaToggle.Foreground = Brush(ResourceKeys.AccentGreenBrush);
-            DetailLumaToggle.BorderBrush = Brush(ResourceKeys.AccentGreenBorderBrush);
-        }
-        else
-        {
-            DetailLumaToggle.Background = Brush(ResourceKeys.SurfaceOverlayBrush);
-            DetailLumaToggle.Foreground = Brush(ResourceKeys.TextTertiaryBrush);
-            DetailLumaToggle.BorderBrush = Brush(ResourceKeys.BorderStrongBrush);
-        }
     }
 
     /// <summary>Allows DetailPanelBuilder to trigger a pending reselect after overrides save.</summary>
@@ -281,23 +262,8 @@ public sealed partial class MainWindow
 
     // ── Dialog delegation ─────────────────────────────────────────────────────────
 
-    private async Task<bool> ShowForeignDxgiConfirmDialogAsync(GameCardViewModel card, string dxgiPath)
-        => await _dialogService.ShowForeignDxgiConfirmDialogAsync(card, dxgiPath);
-
     private async Task CheckForAppUpdateAsync()
         => await _dialogService.CheckForAppUpdateAsync();
-
-    private async Task ShowUpdateDialogAsync(UpdateInfo updateInfo)
-        => await _dialogService.ShowUpdateDialogAsync(updateInfo);
-
-    private async Task DownloadAndInstallUpdateAsync(UpdateInfo updateInfo)
-        => await _dialogService.DownloadAndInstallUpdateAsync(updateInfo);
-
-    private async Task ShowPatchNotesIfNewVersionAsync()
-        => await _dialogService.ShowPatchNotesIfNewVersionAsync();
-
-    private async Task ShowMotdIfNewAsync()
-        => await _dialogService.ShowMotdIfNewAsync();
 
     private async Task ShowPatchNotesDialogAsync()
         => await _dialogService.ShowPatchNotesDialogAsync();

@@ -209,12 +209,6 @@ public interface IOptiScalerService
 
     // ── DLL naming ────────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Resolves the effective OptiScaler DLL filename for a game,
-    /// following the priority chain: user override &gt; manifest override &gt; dxgi.dll.
-    /// </summary>
-    string GetEffectiveOsDllName(string gameName);
-
     // ── Hotkey ────────────────────────────────────────────────────────────────
 
     /// <summary>

@@ -691,19 +691,4 @@ public class MassDlssDeployDialog
         }
         return 0; // Default
     }
-
-    /// <summary>Builds the NVIDIA Override combo: None / Enable / Disable.</summary>
-    private static ComboBox BuildDriverOverrideCombo(bool savedDefault)
-    {
-        var items = new List<string> { NoneOption, "Enable", "Disable" };
-        int selectedIdx = savedDefault ? 1 : 0; // pre-select Enable when default is true
-        return new ComboBox
-        {
-            ItemsSource = items,
-            SelectedIndex = selectedIdx,
-            FontSize = 12,
-            CornerRadius = new CornerRadius(6),
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-        };
-    }
 }

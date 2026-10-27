@@ -72,13 +72,6 @@ public partial class DlssPresetService
         ("Maximum Performance", 0x00000001),
     ];
 
-    public static readonly (string Name, uint Value)[] CpuExprModeOptions =
-    [
-        ("Mode 0 (Default)", 0x00000000),
-        ("Mode 1", 0x00000001),
-        ("Mode 4", 0x00000004),
-    ];
-
     // ── Latency option arrays ─────────────────────────────────────────────────
 
     /// <summary>Combined Low Latency Mode options matching NVIDIA App behavior.</summary>
@@ -113,13 +106,6 @@ public partial class DlssPresetService
     [
         ("Off [Latency]", 0x00000000),
         ("On [Pacing]", 0xFFFFFFFF),
-    ];
-
-    public static readonly (string Name, uint Value)[] SmoothMotionFlipPacingWinOptions =
-    [
-        ("Off [Latency]", 0x00000000),
-        ("On [Pacing]", 0x00000001),
-        ("Force On [Pacing]", 0xFFFFFFFF),
     ];
 
     // ── Shader Cache option arrays ────────────────────────────────────────────
@@ -381,12 +367,6 @@ public partial class DlssPresetService
         return SetPreset(gameName, installPath, POWER_MANAGEMENT_MODE_ID, value);
     }
 
-    public uint GetCpuExprMode(string gameName, string installPath)
-        => GetPreset(gameName, installPath, CPU_EXPR_MODES_ID);
-
-    public bool SetCpuExprMode(string gameName, string installPath, uint value)
-        => SetPreset(gameName, installPath, CPU_EXPR_MODES_ID, value);
-
     // ── Latency get/set ───────────────────────────────────────────────────────
 
     /// <summary>Gets the Low Latency Mode state by reading ULL Mode (0=Off, 1=On, 2=Ultra).</summary>
@@ -593,9 +573,6 @@ $destroyDel.Invoke($hSession) | Out-Null
 
     public bool SetSmoothMotionFlipPacingFs(string gameName, string installPath, uint value)
         => SetPreset(gameName, installPath, SMOOTH_MOTION_FLIP_PACING_FS_ID, value);
-
-    public uint GetSmoothMotionFlipPacingWin(string gameName, string installPath)
-        => GetPreset(gameName, installPath, SMOOTH_MOTION_FLIP_PACING_WIN_ID);
 
     public bool SetSmoothMotionFlipPacingWin(string gameName, string installPath, uint value)
         => SetPreset(gameName, installPath, SMOOTH_MOTION_FLIP_PACING_WIN_ID, value);
@@ -1065,26 +1042,6 @@ $destroyDel.Invoke($hSession) | Out-Null
 
     // ── Global ReBAR ──────────────────────────────────────────────────────────
 
-    /// <summary>Gets the global ReBAR enable state from the base profile. Returns null if not set.</summary>
-    public bool? GetGlobalReBarEnabled()
-    {
-        if (!_isSupported || _session == null) return null;
-        try
-        {
-            var baseProfile = _session.BaseProfile;
-            var sessionHandle = GetHandlePtr(_session.Handle);
-            var profileHandle = GetHandlePtr(baseProfile.Handle);
-            if (sessionHandle != IntPtr.Zero && profileHandle != IntPtr.Zero)
-            {
-                var rawVal = GetSettingRawNvApi(sessionHandle, profileHandle, REBAR_FEATURE_ID);
-                if (rawVal.HasValue)
-                    return rawVal.Value != 0;
-            }
-            return null;
-        }
-        catch { return null; }
-    }
-
     /// <summary>Sets global ReBAR enable on the base profile.</summary>
     public bool SetGlobalReBarEnabled(bool enabled)
     {
@@ -1228,7 +1185,6 @@ $session.Save()
 
     // ── RTX HDR settings ──────────────────────────────────────────────────────
 
-    private const uint RTX_HDR_ALLOW_ID = 0x1077A11A;            // Disallow=0x00, Allow=0x01
     private const uint RTX_HDR_ENABLE_ID = 0x00DD48FB;           // Off=0x00, On=0x01
     private const uint RTX_HDR_CONTRAST_ID = 0x00DD48FE;         // stored = 100 + display (-100 to +100)
     private const uint RTX_HDR_SATURATION_ID = 0x00DD48FF;       // stored = 100 + display (-100 to +100)
@@ -1260,7 +1216,6 @@ $session.Save()
 
     // ── RTX HDR get/set ───────────────────────────────────────────────────────
 
-    public uint GetRtxHdrAllow(string gameName, string installPath) => GetPreset(gameName, installPath, RTX_HDR_ALLOW_ID);
     public uint GetRtxHdrEnable(string gameName, string installPath) => GetPreset(gameName, installPath, RTX_HDR_ENABLE_ID);
     public uint GetRtxHdrContrast(string gameName, string installPath) => GetPreset(gameName, installPath, RTX_HDR_CONTRAST_ID);
     public uint GetRtxHdrSaturation(string gameName, string installPath) => GetPreset(gameName, installPath, RTX_HDR_SATURATION_ID);
@@ -1315,7 +1270,6 @@ $session.Save()
         }
     }
 
-    public bool SetRtxHdrAllow(string gameName, string installPath, uint value) => SetRtxHdrRaw(gameName, installPath, RTX_HDR_ALLOW_ID, value);
     public bool SetRtxHdrEnable(string gameName, string installPath, uint value) => SetRtxHdrRaw(gameName, installPath, RTX_HDR_ENABLE_ID, value);
     public bool SetRtxHdrContrast(string gameName, string installPath, uint value) => SetRtxHdrRaw(gameName, installPath, RTX_HDR_CONTRAST_ID, value);
     public bool SetRtxHdrSaturation(string gameName, string installPath, uint value) => SetRtxHdrRaw(gameName, installPath, RTX_HDR_SATURATION_ID, value);

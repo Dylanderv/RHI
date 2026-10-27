@@ -237,24 +237,6 @@ public class DofFixService : IDofFixService
         return true;
     }
 
-    /// <summary>
-    /// Determines if a game is eligible for DOF Fix based on engine hint (static, no skip list).
-    /// </summary>
-    public static bool IsEligible(string? engineHint, bool is32Bit)
-    {
-        if (is32Bit) return false;
-        if (string.IsNullOrEmpty(engineHint)) return false;
-        if (!engineHint.Contains("Unreal Engine 5")) return false;
-        var idx = engineHint.IndexOf("5.", StringComparison.Ordinal);
-        if (idx < 0) return true; // Just "Unreal Engine 5" with no minor version — assume eligible
-        var afterFive = engineHint.Substring(idx + 2);
-        var dotIdx = afterFive.IndexOf('.');
-        var minorStr = dotIdx >= 0 ? afterFive.Substring(0, dotIdx) : afterFive.TrimEnd(' ', ')');
-        if (int.TryParse(minorStr, out var minor))
-            return minor >= 0 && minor <= 6;
-        return true;
-    }
-
     // ── Private helpers ───────────────────────────────────────────────────────
 
     private async Task<(string? version, string? downloadUrl, string? body)> FetchLatestReleaseInfoAsync()

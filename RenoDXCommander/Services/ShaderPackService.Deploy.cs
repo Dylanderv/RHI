@@ -123,36 +123,6 @@ public partial class ShaderPackService
         }
     }
 
-    /// <summary>
-    /// Collects relative paths for all files belonging to packs matching the given <paramref name="packIds"/>
-    /// plus their transitive dependencies.
-    /// </summary>
-    private (List<string> shaders, List<string> textures) FilesForIds(IEnumerable<string> packIds)
-    {
-        var expandedIds = ExpandDependencies(packIds);
-        var shaders = new List<string>();
-        var textures = new List<string>();
-        try
-        {
-            var d = ReadSettings();
-            if (d == null) return (shaders, textures);
-            foreach (var pack in PacksForIds(expandedIds))
-            {
-                if (!d.TryGetValue(FileListKey(pack.Id), out var json) || string.IsNullOrEmpty(json)) continue;
-                var files = JsonSerializer.Deserialize<List<string>>(json) ?? new();
-                foreach (var rel in files)
-                {
-                    if (rel.StartsWith("Shaders" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
-                        shaders.Add(rel.Substring("Shaders".Length + 1));
-                    else if (rel.StartsWith("Textures" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
-                        textures.Add(rel.Substring("Textures".Length + 1));
-                }
-            }
-        }
-        catch (Exception ex) { CrashReporter.Log($"[ShaderPackService] Operation failed — {ex.Message}"); }
-        return (shaders, textures);
-    }
-
     // ── Marker / ownership helpers ────────────────────────────────────────────────
 
     /// <summary>
@@ -332,28 +302,6 @@ public partial class ShaderPackService
             CrashReporter.Log($"[ShaderPackService.SyncGameFolder] gameDir={gameDir}, {plan.Count} files planned");
 
         MirrorManagedFolder(gameDir, plan);
-    }
-
-    /// <summary>
-    /// Synchronises shaders to every game that has ReShade installed.
-    /// Called after ↻ Refresh so selection changes take effect immediately everywhere.
-    /// Per-game overrides are resolved from <paramref name="locations"/> shaderModeOverride;
-    /// otherwise the passed-in <paramref name="selectedPackIds"/> is used.
-    /// </summary>
-    public void SyncShadersToAllLocations(
-        IEnumerable<(string installPath, bool rsInstalled, string? shaderModeOverride)> locations,
-        IEnumerable<string>? selectedPackIds = null)
-    {
-        foreach (var loc in locations)
-        {
-            if (string.IsNullOrEmpty(loc.installPath) || !Directory.Exists(loc.installPath))
-                continue;
-
-            if (!loc.rsInstalled)
-                continue;
-
-            SyncGameFolder(loc.installPath, selectedPackIds);
-        }
     }
 
     // ── Private copy helpers ──────────────────────────────────────────────────────

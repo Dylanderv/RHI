@@ -76,12 +76,6 @@ public class RemoteManifest
     [JsonPropertyName("snapshotOverrides")]
     public Dictionary<string, string>? SnapshotOverrides { get; set; }
 
-    /// <summary>
-    /// Games that should default to Luma mode when first detected.
-    /// If the user has never toggled Luma for the game, it will be auto-enabled.
-    /// </summary>
-    [JsonPropertyName("lumaDefaultGames")]
-    public List<string>? LumaDefaultGames { get; set; }
 
     /// <summary>
     /// Games that require dgVoodoo2 for Luma installation (DX9 games needing a DX11 translation layer).
@@ -137,15 +131,6 @@ public class RemoteManifest
     /// </summary>
     [JsonPropertyName("dllNameOverrides")]
     public Dictionary<string, ManifestDllNames>? DllNameOverrides { get; set; }
-
-    /// <summary>
-    /// Per-game OptiScaler DLL filename overrides. When a game requires a specific
-    /// proxy DLL name for OptiScaler (e.g. games where dxgi.dll conflicts with
-    /// another tool), this provides a direct mapping.
-    /// Key = game name, Value = DLL filename string (e.g. "winmm.dll").
-    /// </summary>
-    [JsonPropertyName("optiScalerDllOverrides")]
-    public Dictionary<string, string>? OptiScalerDllOverrides { get; set; }
 
     /// <summary>
     /// Per-game graphics API overrides. Allows the manifest to force a specific

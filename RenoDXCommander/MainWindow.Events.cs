@@ -144,60 +144,6 @@ public sealed partial class MainWindow
         _crashReporter.Log("[MainWindow] Addon watch folder reset to default Downloads");
     }
 
-    private async void RsIniButton_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            if (sender is not FrameworkElement { Tag: GameCardViewModel card }) return;
-            if (string.IsNullOrEmpty(card.InstallPath)) return;
-            try
-            {
-                var screenshotPath = BuildScreenshotSavePath(card.GameName);
-                var overlayHotkey = ViewModel.Settings.OverlayHotkey;
-                var screenshotHotkey = ViewModel.Settings.ScreenshotHotkey;
-                var installPath = card.InstallPath;
-                var gameName = card.GameName;
-                var requiresVulkan = card.RequiresVulkanInstall;
-                var useUeExtended = card.UseUeExtended;
-                var status = card.Status;
-
-                await Task.Run(() =>
-                {
-                    if (requiresVulkan)
-                    {
-                        AuxInstallService.MergeRsVulkanIni(installPath, gameName, screenshotPath, overlayHotkey, screenshotHotkey);
-                        VulkanFootprintService.Create(installPath);
-                    }
-                    else
-                        AuxInstallService.MergeRsIni(installPath, screenshotPath, overlayHotkey, screenshotHotkey);
-
-                    // Apply [renodx] section if UE-Extended is installed
-                    if (useUeExtended && status == GameStatus.Installed)
-                        AuxInstallService.ApplyRenoDxNativeHdrSettings(installPath);
-
-                    // Force-apply manifest [renodx] INI overrides on redeploy
-                    if (AuxInstallService.GlobalManifest?.RenodxIniOverrides != null
-                        && AuxInstallService.GlobalManifest.RenodxIniOverrides.TryGetValue(gameName, out var iniOvr))
-                        AuxInstallService.ApplyRenodxIniOverrides(installPath, iniOvr, forceOverwrite: true);
-                });
-
-                // Deploy shaders for Vulkan games (no DLL install, so shaders go with INI) — on UI thread
-                if (requiresVulkan)
-                    ViewModel.DeployShadersForCard(gameName);
-
-                card.RsActionMessage = "✅ reshade.ini merged into game folder.";
-            }
-            catch (Exception ex)
-            {
-                card.RsActionMessage = $"❌ {ex.Message}";
-            }
-        }
-        catch (Exception ex)
-        {
-            CrashReporter.Log($"[MainWindow.RsIniButton_Click] Unhandled error — {ex.Message}\n{ex.StackTrace}");
-        }
-    }
-
     private async void LumaCogButton_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -573,40 +519,6 @@ public sealed partial class MainWindow
         }
     }
 
-    internal void CardComponentUninstall_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is not Button btn || btn.Tag is not GameCardViewModel card) return;
-        var component = btn.DataContext as string;
-
-        switch (component)
-        {
-            case "RDX":
-                ViewModel.UninstallModCommand.Execute(card);
-                break;
-            case "RS":
-                if (card.RequiresVulkanInstall)
-                    ViewModel.UninstallVulkanReShadeCommand.Execute(card);
-                else
-                    ViewModel.UninstallReShadeCommand.Execute(card);
-                break;
-            case "Luma":
-                ViewModel.UninstallLumaCommand.Execute(card);
-                break;
-            case "UL":
-                ViewModel.UninstallUl(card);
-                break;
-            case "DC":
-                ViewModel.UninstallDc(card);
-                break;
-            case "REF":
-                ViewModel.UninstallREFrameworkCommand.Execute(card);
-                break;
-            case "OS":
-                _installEventHandler.UninstallOsButton_Click(sender, e);
-                break;
-        }
-    }
-
     internal async void CardCopyRsIni_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -765,26 +677,6 @@ public sealed partial class MainWindow
         catch (Exception ex)
         {
             CrashReporter.Log($"[MainWindow.CardInstallButton_Click] Unhandled error — {ex.Message}\n{ex.StackTrace}");
-        }
-    }
-
-    internal void CardFavouriteButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is not Button btn || btn.Tag is not GameCardViewModel card) return;
-        ViewModel.ToggleFavouriteCommand.Execute(card);
-        btn.Content = card.IsFavourite ? "⭐" : "☆";
-
-        // Also refresh the detail panel icon if this is the selected game
-        if (card == ViewModel.SelectedGame)
-        {
-            DetailFavIcon.Text = "Favourite";
-            var favColor = card.IsFavourite
-                ? ((SolidColorBrush)Application.Current.Resources[ResourceKeys.AccentAmberBrush]).Color
-                : ((SolidColorBrush)Application.Current.Resources[ResourceKeys.ChipTextBrush]).Color;
-            DetailFavIcon.Foreground = new SolidColorBrush(favColor);
-            DetailFavBtn.BorderBrush = card.IsFavourite
-                ? new SolidColorBrush(((SolidColorBrush)Application.Current.Resources[ResourceKeys.AccentAmberBrush]).Color)
-                : (Brush)Application.Current.Resources[ResourceKeys.BorderSubtleBrush];
         }
     }
 
@@ -1015,20 +907,6 @@ public sealed partial class MainWindow
         catch (Exception ex)
         {
             CrashReporter.Log($"[MainWindow.ExternalLink_Click] Unhandled error — {ex.Message}\n{ex.StackTrace}");
-        }
-    }
-
-    private async void NameLink_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            var card = GetCardFromSender(sender);
-            if (card?.NameUrl != null)
-                await Windows.System.Launcher.LaunchUriAsync(new Uri(card.NameUrl));
-        }
-        catch (Exception ex)
-        {
-            CrashReporter.Log($"[MainWindow.NameLink_Click] Unhandled error — {ex.Message}\n{ex.StackTrace}");
         }
     }
 
@@ -1388,26 +1266,8 @@ public sealed partial class MainWindow
 
     // ── Card handlers ─────────────────────────────────────────────────────────────
 
-    private void ExpandComponents_Click(object sender, RoutedEventArgs e)
-    {
-        if ((sender as FrameworkElement)?.Tag is GameCardViewModel card)
-            card.ComponentExpanded = !card.ComponentExpanded;
-    }
-
-    private void CombinedInstallButton_Click(object sender, RoutedEventArgs e)
-        => _installEventHandler.CombinedInstallButton_Click(sender, e);
-
     internal void InstallButton_Click(object sender, RoutedEventArgs e)
         => _installEventHandler.InstallButton_Click(sender, e);
-
-    private void Install64Button_Click(object sender, RoutedEventArgs e)
-        => _installEventHandler.Install64Button_Click(sender, e);
-
-    private void Install32Button_Click(object sender, RoutedEventArgs e)
-        => _installEventHandler.Install32Button_Click(sender, e);
-
-    private async Task EnsurePathAndInstall(GameCardViewModel card, Func<Task> installAction)
-        => await _installEventHandler.EnsurePathAndInstall(card, installAction);
 
     internal void UninstallButton_Click(object sender, RoutedEventArgs e)
         => _installEventHandler.UninstallButton_Click(sender, e);

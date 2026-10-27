@@ -129,15 +129,6 @@ public partial class SettingsHandler
 
     // SkipUpdateToggle and VerboseLoggingToggle removed from UI — logic retained in ViewModel
 
-    public void BetaOptInToggle_Toggled(object sender, RoutedEventArgs e)
-    {
-        if (sender is ToggleSwitch toggle)
-        {
-            ViewModel.BetaOptIn = toggle.IsOn;
-            ViewModel.SaveSettingsPublic();
-        }
-    }
-
     public void CustomShadersCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (sender is ComboBox combo)

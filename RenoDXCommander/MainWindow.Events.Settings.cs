@@ -130,17 +130,8 @@ public sealed partial class MainWindow
     private void HotkeyBox_PreviewKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
         => _settingsHandler.HotkeyBox_PreviewKeyDown(sender, e);
 
-    private void ApplyOverlayHotkey_Click(object sender, RoutedEventArgs e)
-        => _settingsHandler.ApplyOverlayHotkey_Click(sender, e);
-
-    private void ApplyReShadeHotkeys_Click(object sender, RoutedEventArgs e)
-        => _settingsHandler.ApplyReShadeHotkeys_Click(sender, e);
-
     private void ScreenshotHotkeyBox_PreviewKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
         => _settingsHandler.ScreenshotHotkeyBox_PreviewKeyDown(sender, e);
-
-    private void ApplyScreenshotHotkey_Click(object sender, RoutedEventArgs e)
-        => _settingsHandler.ApplyScreenshotHotkey_Click(sender, e);
 
     private void ResetScreenshotHotkey_Click(object sender, RoutedEventArgs e)
         => _settingsHandler.ResetScreenshotHotkey_Click(sender, e);
@@ -490,11 +481,6 @@ public sealed partial class MainWindow
         {
             CrashReporter.Log($"[MainWindow.FpsLimitCombo_Custom] Unhandled error — {ex.Message}\n{ex.StackTrace}");
         }
-    }
-
-    private void FpsLimitCombo_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
-    {
-        // No longer needed — non-editable ComboBox
     }
 
     private void PreferredRefreshRateCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)

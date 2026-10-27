@@ -55,9 +55,6 @@ public partial class GameCardViewModel
             ? Visibility.Visible : Visibility.Collapsed;
 
     // ── Combined status for simplified card ──────────────────────────────────────
-    /// <summary>True when all components that are relevant are installed (or N/A).</summary>
-    private bool AllInstalled => (Mod == null || Status == GameStatus.Installed || Status == GameStatus.UpdateAvailable)
-                              && (RsStatus == GameStatus.Installed || RsStatus == GameStatus.UpdateAvailable || RsStatus == GameStatus.NotInstalled);
 
     private bool AnyInstalling => IsInstalling || RsIsInstalling;
 

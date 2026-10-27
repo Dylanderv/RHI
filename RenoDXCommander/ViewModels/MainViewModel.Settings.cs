@@ -9,13 +9,6 @@ namespace RenoDXCommander.ViewModels;
 
 public partial class MainViewModel
 {
-    /// <summary>Returns the persisted Vulkan rendering path for a game, or "DirectX" if none set.</summary>
-    public string GetVulkanRenderingPath(string gameName, string store = "")
-    {
-        var key = GameKey.From(gameName, store).ToKey();
-        return _vulkanRenderingPaths.TryGetValue(key, out var path) ? path : "DirectX";
-    }
-
     /// <summary>Sets the per-game Vulkan rendering path preference. "DirectX" removes the override (default).</summary>
     public void SetVulkanRenderingPath(string gameName, string renderingPath, string store = "")
     {
@@ -1144,17 +1137,6 @@ public partial class MainViewModel
         card.NotifyAll();
     }
 
-    public string? GetFolderOverride(string gameName, string store = "")
-    {
-        var key = GameKey.From(gameName, store).ToKey();
-        if (_folderOverrides.TryGetValue(key, out var stored))
-        {
-            var parts = stored.Split('|');
-            return parts[0]; // Return just the override path
-        }
-        return null;
-    }
-
     public bool HasDllOverride(string gameName) => _dllOverrideService.HasDllOverride(gameName);
 
     public DllOverrideConfig? GetDllOverride(string gameName)
@@ -1632,10 +1614,6 @@ public partial class MainViewModel
         _updateAllExcludedOs.Contains(GameKey.From(gameName, store).ToKey());
     public bool IsUpdateAllExcludedRef(string gameName, string store = "") => 
         _updateAllExcludedRef.Contains(GameKey.From(gameName, store).ToKey());
-
-    /// <summary>Returns true if the game is configured to use normal (non-addon) ReShade.</summary>
-    public bool IsNormalReShadeGame(string gameName, string store = "") => 
-        _normalReShadeGames.Contains(GameKey.From(gameName, store).ToKey());
 
     public void ToggleUpdateAllExclusionReShade(string gameName, string store = "")
     {

@@ -147,9 +147,6 @@ public interface IGameNameService
     /// <summary>Per-game AutoHDRStrength (0–100). Name-only key.</summary>
     Dictionary<string, int> AutoHdrStrengths { get; }
 
-    /// <summary>Per-game Windows HDR launch toggle for Auto HDR games. "On" = enable HDR on launch/restore on exit.</summary>
-    Dictionary<string, string> AutoHdrLaunchToggle { get; }
-
     /// <summary>Games where Streamline should be deployed to the OptiScaler subfolder. Composite-keyed "GameName|Store".</summary>
     HashSet<string> OsDeployStreamline { get; }
 
@@ -190,7 +187,6 @@ public interface IGameNameService
     /// <summary>Per-game standalone DLSS Enabler installed DLL name. Composite-keyed "GameName|Store".</summary>
     Dictionary<string, string> DeInstalledAs { get; }
     /// <summary>Legacy — games where ShortFuse auto-config was disabled. Kept for migration only.</summary>
-    HashSet<string> SfAutoConfigDisabled { get; }
     /// <summary>Games where ShortFuse auto-config is explicitly enabled. Absent = disabled.</summary>
     HashSet<string> SfAutoConfigEnabled { get; }
     HashSet<string> DlssNrCostScalerEnabled { get; }
@@ -227,17 +223,6 @@ public interface IGameNameService
         SettingsViewModel settingsViewModel,
         ViewLayout currentViewLayout,
         bool isLoadingSettings,
-        string filterMode,
-        List<CustomFilter> customFilters);
-
-    /// <summary>
-    /// Persists all settings to disk immediately (bypasses debounce).
-    /// Use for game rename and app shutdown where immediate persistence is required.
-    /// </summary>
-    void SaveNameMappingsImmediate(
-        IDllOverrideService dllOverrideService,
-        SettingsViewModel settingsViewModel,
-        ViewLayout currentViewLayout,
         string filterMode,
         List<CustomFilter> customFilters);
 
@@ -287,7 +272,4 @@ public interface IGameNameService
 
     /// <summary>Applies persisted folder overrides to a list of detected games.</summary>
     void ApplyFolderOverrides(List<DetectedGame> games);
-
-    /// <summary>Clears the original-detected-names tracking dictionary.</summary>
-    void ClearOriginalDetectedNames();
 }

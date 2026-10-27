@@ -13,7 +13,6 @@ public static class NvColorService
     private const uint NVAPI_DISP_GET_DISPLAYID_BY_NAME_ID  = 0xAE457190;
     private const uint NVAPI_ENUM_DISPLAY_HANDLE_ID         = 0x9ABDD40D;
     private const uint NVAPI_GET_ASSOCIATED_DISPLAY_NAME_ID = 0x22A78B05;
-    private const uint NVAPI_DISP_GET_GDI_PRIMARY_ID        = 0x1E9D8A31;
 
     // ── cmd values ────────────────────────────────────────────────────────────
     private const byte NV_COLOR_CMD_GET = 1;
@@ -107,8 +106,6 @@ public static class NvColorService
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)] public string DeviceID;
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)] public string DeviceKey;
     }
-
-    private const uint DISPLAY_DEVICE_ACTIVE = 0x00000001;
 
     // ── CCD source name P/Invoke (for GDI device name → friendly name mapping) ─
     [DllImport("user32.dll")] private static extern int DisplayConfigGetDeviceInfo(ref DISPLAYCONFIG_SOURCE_DEVICE_NAME info);

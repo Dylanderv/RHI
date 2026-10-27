@@ -93,10 +93,6 @@ public partial class OptiScalerService : IOptiScalerService
     private static string GetNightlyBuildDir(string buildDate) =>
         Path.Combine(NightlyStagingRoot, buildDate);
 
-    /// <summary>Returns the version.txt path for a specific nightly build date.</summary>
-    private static string GetNightlyBuildVersionPath(string buildDate) =>
-        Path.Combine(GetNightlyBuildDir(buildDate), "version.txt");
-
     // ── OptiPatcher constants ─────────────────────────────────────────────────
     private static readonly string OptiPatcherReleasesApi =
         "https://api.github.com/repos/optiscaler/OptiPatcher/releases/tags/rolling";
@@ -117,8 +113,6 @@ public partial class OptiScalerService : IOptiScalerService
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "RHI", "dlss");
     private static readonly string DlssVersionPath = Path.Combine(DlssStagingDir, "version.txt");
-    private static readonly string DlssdVersionPath = Path.Combine(DlssStagingDir, "version_dlssd.txt");
-    private static readonly string DlssgVersionPath = Path.Combine(DlssStagingDir, "version_dlssg.txt");
     private const string DlssDllFileName = "nvngx_dlss.dll";
     private const string DlssdDllFileName = "nvngx_dlssd.dll";
     private const string DlssgDllFileName = "nvngx_dlssg.dll";

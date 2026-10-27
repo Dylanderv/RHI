@@ -100,7 +100,6 @@ public class GameNameService : IGameNameService
     private Dictionary<string, int> _autoHdrStrengths = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Per-game Windows HDR launch toggle for Auto HDR games. "On" = enable HDR on launch and restore on exit. Absent = leave HDR alone.</summary>
-    private Dictionary<string, string> _autoHdrLaunchToggle = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Games where Streamline should be deployed to the OptiScaler subfolder. Composite-keyed "GameName|Store".</summary>
     private HashSet<string> _osDeployStreamline = new(StringComparer.OrdinalIgnoreCase);
@@ -145,7 +144,6 @@ public class GameNameService : IGameNameService
     private Dictionary<string, string> _deInstalledAs = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Games where ShortFuse auto-config is DISABLED. Composite-keyed. Legacy — kept for migration only.</summary>
-    private HashSet<string> _sfAutoConfigDisabled = new(StringComparer.OrdinalIgnoreCase);
     /// <summary>Games where ShortFuse auto-config is ENABLED. Composite-keyed "GameName|Store". Absent = disabled (default).</summary>
     private HashSet<string> _sfAutoConfigEnabled = new(StringComparer.OrdinalIgnoreCase);
     private HashSet<string> _dlssNrCostScalerEnabled = new(StringComparer.OrdinalIgnoreCase);
@@ -235,8 +233,6 @@ public class GameNameService : IGameNameService
     public HashSet<string> AutoHdrGames => _autoHdrGames;
     /// <summary>Per-game AutoHDRStrength (0–100). Name-only key.</summary>
     public Dictionary<string, int> AutoHdrStrengths => _autoHdrStrengths;
-    /// <summary>Per-game Windows HDR launch toggle for Auto HDR games. "On" = enable HDR on launch/restore on exit. Absent = leave HDR alone.</summary>
-    public Dictionary<string, string> AutoHdrLaunchToggle => _autoHdrLaunchToggle;
     public Dictionary<string, string> OriginalDetectedNames => _originalDetectedNames;
 
     /// <summary>Games where Streamline should be deployed. Composite-keyed "GameName|Store".</summary>
@@ -279,7 +275,6 @@ public class GameNameService : IGameNameService
     /// <summary>Per-game standalone DLSS Enabler installed DLL name. Composite-keyed "GameName|Store".</summary>
     public Dictionary<string, string> DeInstalledAs => _deInstalledAs;
     /// <summary>Games where ShortFuse auto-config is disabled. Legacy — kept for migration only.</summary>
-    public HashSet<string> SfAutoConfigDisabled => _sfAutoConfigDisabled;
     /// <summary>Games where ShortFuse auto-config is explicitly enabled. Composite-keyed "GameName|Store". Absent = disabled.</summary>
     public HashSet<string> SfAutoConfigEnabled => _sfAutoConfigEnabled;
     public HashSet<string> DlssNrCostScalerEnabled => _dlssNrCostScalerEnabled;
@@ -658,10 +653,6 @@ public class GameNameService : IGameNameService
         _autoHdrStrengths = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         foreach (var kv in autoHdrStrengthsRaw) _autoHdrStrengths[kv.Key] = kv.Value;
 
-        var autoHdrLaunchDict = Load<Dictionary<string, string>>("AutoHdrLaunchToggle", new(StringComparer.OrdinalIgnoreCase));
-        _autoHdrLaunchToggle = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var kv in autoHdrLaunchDict) _autoHdrLaunchToggle[kv.Key] = kv.Value;
-
         _osDeployStreamline = new HashSet<string>(
             Load<List<string>>("OsDeployStreamline", new()), StringComparer.OrdinalIgnoreCase);
 
@@ -711,9 +702,6 @@ public class GameNameService : IGameNameService
         var deInstalledAsDict = Load<Dictionary<string, string>>("DeInstalledAs", new(StringComparer.OrdinalIgnoreCase));
         _deInstalledAs = new(StringComparer.OrdinalIgnoreCase);
         foreach (var kv in deInstalledAsDict) _deInstalledAs[kv.Key] = kv.Value;
-
-        _sfAutoConfigDisabled = new HashSet<string>(
-            Load<List<string>>("SfAutoConfigDisabled", new()), StringComparer.OrdinalIgnoreCase);
         _sfAutoConfigEnabled = new HashSet<string>(
             Load<List<string>>("SfAutoConfigEnabled", new()), StringComparer.OrdinalIgnoreCase);
         _dlssNrCostScalerEnabled = new HashSet<string>(
@@ -780,26 +768,6 @@ public class GameNameService : IGameNameService
                 _saveDebounceTimer = new Timer(_ => DoSaveNameMappings(), null, 250, Timeout.Infinite);
             }
         }
-    }
-
-    /// <summary>
-    /// Performs the actual disk write. Called from the debounce timer callback.
-    /// Also call this directly when immediate persistence is required (e.g. game rename, app shutdown).
-    /// </summary>
-    public void SaveNameMappingsImmediate(
-        IDllOverrideService dllOverrideService,
-        SettingsViewModel settingsViewModel,
-        ViewLayout currentViewLayout,
-        string filterMode,
-        List<CustomFilter> customFilters)
-    {
-        // Cancel any pending debounced save — we're doing it now
-        lock (_saveLock)
-        {
-            _saveDebounceTimer?.Change(Timeout.Infinite, Timeout.Infinite);
-        }
-
-        DoSaveNameMappingsInternal(dllOverrideService, settingsViewModel, currentViewLayout, filterMode, customFilters);
     }
 
     /// <summary>
@@ -928,10 +896,7 @@ public class GameNameService : IGameNameService
                     s["AutoHdrStrengths"] = JsonSerializer.Serialize(_autoHdrStrengths);
                 else
                     s.Remove("AutoHdrStrengths");
-                if (_autoHdrLaunchToggle.Count > 0)
-                    s["AutoHdrLaunchToggle"] = JsonSerializer.Serialize(_autoHdrLaunchToggle);
-                else
-                    s.Remove("AutoHdrLaunchToggle");
+                s.Remove("AutoHdrLaunchToggle"); // legacy — no longer written
                 s["OsDeployStreamline"]  = JsonSerializer.Serialize(_osDeployStreamline.ToList());
                 if (_dgVoodooStandaloneGames.Count > 0) s["DgVoodooStandaloneGames"] = JsonSerializer.Serialize(_dgVoodooStandaloneGames.ToList());
                 else s.Remove("DgVoodooStandaloneGames");
@@ -1107,7 +1072,6 @@ public class GameNameService : IGameNameService
         MigrateCompositeDict(_osNrRuntime, oldName, newName);
         MigrateCompositeDict(_ualInstalledAs, oldName, newName);
         MigrateCompositeDict(_deInstalledAs, oldName, newName);
-        MigrateCompositeHashSet(_sfAutoConfigDisabled, oldName, newName);
         MigrateCompositeHashSet(_sfAutoConfigEnabled, oldName, newName);
         MigrateCompositeHashSet(_dlssNrCostScalerEnabled, oldName, newName);
         MigrateCompositeHashSet(_sfZzzMode, oldName, newName);
@@ -1125,7 +1089,6 @@ public class GameNameService : IGameNameService
         MigrateHashSet(_autoHdrGames, oldName, newName);
         MigrateHashSet(_lumaTaaEnabled, oldName, newName);
         MigrateDict(_autoHdrStrengths, oldName, newName);
-        MigrateDict(_autoHdrLaunchToggle, oldName, newName);
 
         // Migrate composite-keyed Dictionaries (independent per store)
         MigrateCompositeDict(_perGameShaderMode, oldName, newName);
@@ -1247,8 +1210,6 @@ public class GameNameService : IGameNameService
             }
         }
     }
-
-    public void ClearOriginalDetectedNames() => _originalDetectedNames.Clear();
 
     // ── Static helpers ────────────────────────────────────────────────────────
 

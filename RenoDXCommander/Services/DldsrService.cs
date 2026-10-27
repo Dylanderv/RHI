@@ -103,8 +103,6 @@ public class DldsrService : IDldsrService
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "RHI", "dldsr-captures.json");
 
-    public bool HasCaptures => File.Exists(CapturesFilePath) && LoadCaptures().Count > 0;
-
     // ── State Reading ─────────────────────────────────────────────────────────
 
     public List<DldsrState> GetCurrentState()
@@ -651,14 +649,6 @@ try {
     private static string BytesToHex(byte[] bytes)
     {
         return string.Join(",", bytes.Select(b => b.ToString("x2")));
-    }
-
-    private static byte[] HexToBytes(string hex)
-    {
-        return hex.Split(',')
-            .Where(s => !string.IsNullOrWhiteSpace(s))
-            .Select(s => Convert.ToByte(s.Trim(), 16))
-            .ToArray();
     }
 
     /// <summary>

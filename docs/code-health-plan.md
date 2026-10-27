@@ -106,36 +106,19 @@ Measured from logs on a 102-game library.
     - Add thread and level fields.
     - Count dropped entries.
 
-### 2.2 Dead code (about 2,400–2,600 lines)
+### 2.2 Dead code (done 27 Oct 2026, about 3,100 lines)
 
-**Safe to delete (no callers):**
-
-- [ ] `LiliumShaderService` and `ILiliumShaderService`: registered in DI but never resolved. Move the `GameReShadeShaders` const somewhere else first.
-- [ ] `CompactViewBuilder`: never instantiated. Also remove the compact-mode leftovers in `WindowStateManager`.
-- [ ] Old install handlers:
-  - `InstallEventHandler`: Combined, Install64, Install32, ChooseAddons, SwitchToLuma, UeExtendedFlyout
-  - `InstallMod32Async`
-- [ ] Skeleton grid card and spec helpers in `MainWindow.Skeleton.cs`.
-- [ ] 9 of 10 value converters.
-- [ ] 9 unread fields in `GameInitializationService`.
-- [ ] About 50 unused private members (IDE0051/IDE0052) and about 60 public members with no callers.
-- [ ] 142 unused usings; 20 unused parameters.
-
-**Check before deleting:**
-
-- [ ] `optiScalerDllOverrides` manifest field: read but never used.
-- [ ] `lumaDefaultGames` manifest field: read but never used.
-- [ ] The `AutoHdrLaunchToggle` setting: read but never written.
-- [ ] `SfAutoConfigDisabled`
-- [ ] `FeatureFlags.DlssNr`: always true. Remove the flag and the dead branches.
-- [ ] `ReShade.Vulkan.ini`: shipped but never read. Also `FEATURES.txt`.
-- [ ] The `tools/pcgw-fetch` Python script, if `tools/PCGW-Editor` replaced it.
-
-**Duplicates to merge:**
-
-- [ ] Three copies of `Find7Zip`, plus inline 7-Zip paths built from `AppContext.BaseDirectory`. That breaks the `Environment.ProcessPath` rule, so the paths are wrong in single-file publish. Merge them into one helper.
-- [ ] `IsLegacyVersion` exists twice.
-- [ ] Several version-comparison helpers: merge them into one.
+- [x] Removed (sub-agent, re-verified against all .cs/.xaml/tests/tools): `LiliumShaderService`, `CompactViewBuilder` + window size-lock code, old install handlers + `InstallMod32Async` + unreachable UE-Extended warning dialog, skeleton spec helpers, 9 of 10 converters (`BoolToVisibility` kept, used in XAML), 9 unread fields in `GameInitializationService`, ~58 unused private members, ~45 public members + 18 interface members with no callers, 24 never-read cached NVIDIA profile properties, `GitHubETagCache.InvalidateAll`.
+- [x] `lumaDefaultGames` removed (app, Manifest Editor, manifest.json): it was never implemented.
+- [x] `FEATURES.txt` (ReLimiter reference) no longer shipped. `SfAutoConfigDisabled` legacy setting removed.
+- [-] **`ReShade.Vulkan.ini` is USED** (the audit was wrong): seeded to `iniseshade.vulkan.ini` and used as the Vulkan reshade.ini template (`AuxInstallService.EnsureInisDir`, `.Ini.cs`). Referenced in lowercase, which case-sensitive searches miss.
+- [-] `FeatureFlags.DlssNr` kept as a remote kill switch.
+- [-] `tools/pcgw-fetch` kept: the PCGW Editor calls it.
+- [ ] **Decide:** `AutoHdrLaunchToggle` (launch code reads it, nothing can set it).
+- [x] Manifest `optiScalerDllOverrides` never worked (its loader was never called). Removed from the app and the Manifest Editor, along with the unused per-game Auto HDR launch toggle (the card's HDR button covers it).
+- [ ] Found while removing: `SaveNameMappingsImmediate` and `PcgwService.FlushCacheAsync` had no callers despite comments saying to call them at rename/shutdown (removed). Check shutdown still flushes what it should (`FlushPendingSave` handles settings).
+- [ ] Skipped: `DlssPresetService._nativeSetSettingLegacy` (set from NVAPI lookup), `UeExtendedWarningDismissed` setting key (no reader now), constructor parameters that no longer feed a field.
+- [ ] **Duplicates to merge:** three `Find7Zip` copies + inline `AppContext.BaseDirectory` 7-Zip paths; `IsLegacyVersion` twice; several version comparers. Also `EnsureInisDir` seeds templates from `AppContext.BaseDirectory` (CLAUDE.md says use `Environment.ProcessPath`).
 
 ---
 

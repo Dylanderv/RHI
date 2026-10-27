@@ -22,7 +22,6 @@ public class WikiService : IWikiService
     // Unity: sourced from NotVoosh's dedicated repo for reliable updates
     public const string GenericUnityUrl64 = "https://github.com/NotVoosh/renodx-unity/releases/download/snapshot/renodx-unityengine.addon64";
     public const string GenericUnityUrl32 = "https://github.com/NotVoosh/renodx-unity/releases/download/snapshot/renodx-unityengine.addon32";
-    public const string GenericUnityUrl   = GenericUnityUrl64;
 
     public async Task<(List<GameMod> Mods, Dictionary<string, string> GenericNotes)>
         FetchAllAsync(IProgress<string>? progress = null)
@@ -303,10 +302,6 @@ public class WikiService : IWikiService
     }
 
     // Keep ParseSpecificMods as alias for backward compatibility
-    private List<GameMod> ParseSpecificMods(HtmlNode table)
-    {
-        return ParseModTable(table, new List<string> { "name", "maintainer", "links", "status" });
-    }
 
     private void ParseGenericTable(HtmlNode table, Dictionary<string, string> noteMap)
     {

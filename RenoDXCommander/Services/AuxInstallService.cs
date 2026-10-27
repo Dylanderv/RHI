@@ -163,26 +163,6 @@ public partial class AuxInstallService : IAuxInstallService, IAuxFileService
         return Path.Combine(DlssStreamlineService.RsCustomDir, filename);
     }
 
-    /// <summary>
-    /// Returns true if custom ReShade DLLs are available (at least one .dll file in Custom\ReShade).
-    /// </summary>
-    public static bool IsCustomReShadeAvailable()
-    {
-        var dir = DlssStreamlineService.RsCustomDir;
-        if (!Directory.Exists(dir)) return false;
-        return Directory.GetFiles(dir, "*.dll").Length > 0;
-    }
-
-    /// <summary>
-    /// Returns the staging directory for the given channel.
-    /// </summary>
-    public static string GetStagingDirForChannel(string channel)
-    {
-        if (string.Equals(channel, ChannelNightly, StringComparison.OrdinalIgnoreCase))
-            return RsNightlyStagingDir;
-        return RsStagingDir;
-    }
-
     // ── Infrastructure ────────────────────────────────────────────────────────────
     private static readonly string DbPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),

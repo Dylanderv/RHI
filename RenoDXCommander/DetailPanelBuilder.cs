@@ -34,7 +34,6 @@ public partial class DetailPanelBuilder
     private readonly IPeHeaderService _peHeaderService;
     private readonly DlssPresetService _dlssPresetService;
     private readonly IDlssStreamlineService _dlssStreamlineService;
-    private readonly IDxvkService _dxvkService;
     private readonly IDllOverrideService _dllOverrideService;
     private readonly IAuxInstallService _auxInstallService;
     private readonly IShaderPackService _shaderPackService;
@@ -62,7 +61,6 @@ public partial class DetailPanelBuilder
         _peHeaderService = peHeaderService;
         _dlssPresetService = dlssPresetService;
         _dlssStreamlineService = dlssStreamlineService;
-        _dxvkService = dxvkService;
         _dllOverrideService = dllOverrideService;
         _auxInstallService = auxInstallService;
         _shaderPackService = shaderPackService;
@@ -888,56 +886,6 @@ public partial class DetailPanelBuilder
     }
 
     /// <summary>
-    /// Populates a TextBlock's Inlines with the Components section collapsed summary.
-    /// White component names, green version numbers. Clears existing inlines first.
-    /// Returns false when nothing is installed (caller should hide the TextBlock).
-    /// </summary>
-    internal static bool PopulateComponentsSummaryInlines(TextBlock target, GameCardViewModel card)
-    {
-        target.Inlines.Clear();
-
-        var entries = new List<(string Label, string? Version)>();
-        if (card.IsRefInstalled)
-            entries.Add(("RE Framework", card.RefInstalledVersion));
-        if (card.IsRsInstalled && card.LumaStatus is not GameStatus.Installed and not GameStatus.UpdateAvailable)
-            entries.Add(("ReShade", card.RsInstalledVersion));
-        if (card.IsRdxInstalled)
-            entries.Add(("RenoDX", card.RdxInstalledVersion));
-        if (card.IsUlInstalled)
-            entries.Add(("ReLimiter", card.UlInstalledVersion));
-        if (card.IsDcInstalled)
-            entries.Add(("DC", card.DcInstalledVersion));
-        if (card.IsLumaInstalled)
-            entries.Add(("Luma", "On"));
-
-        if (entries.Count == 0) return false;
-
-        for (int i = 0; i < entries.Count; i++)
-        {
-            if (i > 0)
-                target.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run
-                {
-                    Text       = "  ·  ",
-                    Foreground = UIFactory.Brush(ResourceKeys.TextTertiaryBrush),
-                });
-
-            target.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run
-            {
-                Text       = entries[i].Label,
-                Foreground = UIFactory.Brush(ResourceKeys.TextSecondaryBrush),
-            });
-
-            if (!string.IsNullOrWhiteSpace(entries[i].Version))
-                target.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run
-                {
-                    Text       = " " + entries[i].Version,
-                    Foreground = UIFactory.GetBrush("#5ECB7D"),
-                });
-        }
-        return true;
-    }
-
-    /// <summary>
     /// Builds the summary for the Components section from the current card state.
     /// Returns null when nothing is installed.
     /// </summary>
@@ -1018,81 +966,5 @@ public partial class DetailPanelBuilder
         }
 
         return MakeSectionSummaryInlines(entries);
-    }
-
-    /// <summary>
-    /// Builds a collapsible section: a clickable header row (arrow + title) and a body
-    /// StackPanel whose visibility is toggled on click.
-    /// The collapsed state is persisted in SettingsViewModel.CollapsedDetailSections.
-    /// Returns a StackPanel containing [header, body] that should be added to the parent panel.
-    /// The caller should add all section body content into the returned <paramref name="body"/> panel.
-    /// </summary>
-    internal (StackPanel wrapper, StackPanel body) MakeSectionHeader(string title, string sectionKey)
-    {
-        var settings = _window.ViewModel.Settings;
-        bool isCollapsed = settings.CollapsedDetailSections.Contains(sectionKey);
-
-        var arrowText = new TextBlock
-        {
-            Text        = isCollapsed ? "▶" : "▼",
-            FontSize    = 10,
-            Foreground  = UIFactory.Brush(ResourceKeys.TextTertiaryBrush),
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin      = new Thickness(0, 0, 6, 0),
-        };
-
-        var titleText = new TextBlock
-        {
-            Text       = title,
-            FontSize   = 13,
-            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-            Foreground = UIFactory.Brush(ResourceKeys.TextPrimaryBrush),
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-
-        var headerRow = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Spacing     = 0,
-        };
-        headerRow.Children.Add(arrowText);
-        headerRow.Children.Add(titleText);
-
-        // Make the header row behave like a button
-        headerRow.PointerEntered += (s, e) => titleText.Foreground = UIFactory.Brush(ResourceKeys.AccentTealBrush);
-        headerRow.PointerExited  += (s, e) => titleText.Foreground = UIFactory.Brush(ResourceKeys.TextPrimaryBrush);
-
-        // Hand cursor on hover
-        var handCursor  = Microsoft.UI.Input.InputSystemCursor.Create(Microsoft.UI.Input.InputSystemCursorShape.Hand);
-        var arrowCursor = Microsoft.UI.Input.InputSystemCursor.Create(Microsoft.UI.Input.InputSystemCursorShape.Arrow);
-        var cursorProp  = DetailPanelBuilder.CursorProp;
-        headerRow.PointerEntered += (s, e) => cursorProp?.SetValue(headerRow, handCursor);
-        headerRow.PointerExited  += (s, e) => cursorProp?.SetValue(headerRow, arrowCursor);
-
-        var body = new StackPanel
-        {
-            Spacing    = 10,
-            Visibility = isCollapsed ? Visibility.Collapsed : Visibility.Visible,
-        };
-
-        // Toggle on click
-        headerRow.PointerPressed += (s, e) =>
-        {
-            bool nowCollapsed = body.Visibility == Visibility.Visible;
-            body.Visibility = nowCollapsed ? Visibility.Collapsed : Visibility.Visible;
-            arrowText.Text  = nowCollapsed ? "▶" : "▼";
-
-            if (nowCollapsed)
-                settings.CollapsedDetailSections.Add(sectionKey);
-            else
-                settings.CollapsedDetailSections.Remove(sectionKey);
-
-            _window.ViewModel.SaveSettingsPublic();
-        };
-
-        var wrapper = new StackPanel { Spacing = 8 };
-        wrapper.Children.Add(headerRow);
-        wrapper.Children.Add(body);
-        return (wrapper, body);
     }
 }

@@ -764,26 +764,6 @@ public class LumaService : ILumaService
         return record;
     }
 
-    /// <summary>
-    /// Copies all files from sourceDir into destDir, tracking each relative path
-    /// for later uninstall. Relative paths are stored against gameRoot.
-    /// </summary>
-    private static void DeployFolderTracked(string sourceDir, string destDir, string gameRoot, List<string> tracked)
-    {
-        if (!Directory.Exists(sourceDir)) return;
-        Directory.CreateDirectory(destDir);
-        foreach (var srcFile in Directory.GetFiles(sourceDir, "*", SearchOption.AllDirectories))
-        {
-            var relInSource = Path.GetRelativePath(sourceDir, srcFile);
-            var destFile = Path.Combine(destDir, relInSource);
-            Directory.CreateDirectory(Path.GetDirectoryName(destFile)!);
-            File.Copy(srcFile, destFile, overwrite: true);
-            // Track relative to game root for clean uninstall
-            var relToGame = Path.GetRelativePath(gameRoot, destFile);
-            tracked.Add(relToGame);
-        }
-    }
-
     // ── Uninstall ─────────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -910,7 +890,7 @@ public class LumaService : ILumaService
 
         // Clean up empty subdirectories within reshade-shaders — but never the root itself,
         // as it belongs to ReShade which may still be installed.
-        var rsDir = Path.Combine(record.InstallPath, LiliumShaderService.GameReShadeShaders);
+        var rsDir = Path.Combine(record.InstallPath, ShaderPackService.GameReShadeShaders);
         try
         {
             if (Directory.Exists(rsDir))
@@ -979,13 +959,6 @@ public class LumaService : ILumaService
                                 && r.InstallPath.Equals(installPath, StringComparison.OrdinalIgnoreCase));
             SaveAllRecords(records);
         }
-    }
-
-    public static LumaInstalledRecord? GetRecord(string gameName, string installPath)
-    {
-        return LoadAllRecords().FirstOrDefault(r =>
-            r.GameName.Equals(gameName, StringComparison.OrdinalIgnoreCase)
-            && r.InstallPath.Equals(installPath, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>Get record by install path only (for matching by game folder).</summary>

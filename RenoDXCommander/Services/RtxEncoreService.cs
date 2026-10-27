@@ -128,10 +128,6 @@ public class RtxEncoreService
         return null;
     }
 
-    /// <summary>Returns true if nvngx_dlssnr.dll exists in the game folder.</summary>
-    public bool IsNrDllDeployedIn(string installPath)
-        => File.Exists(Path.Combine(installPath, NrDllName));
-
     /// <summary>
     /// Deploys nvngx_dlssnr.dll 310.8.0 to the game folder using the sentinel pattern
     /// and registers RtxEncore as a SharedFile owner in rhi_install.txt.

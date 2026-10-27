@@ -38,11 +38,6 @@ public class WindowStateManager
     // In-memory cache of window bounds (populated from file on first restore)
     private (int X, int Y, int W, int H)? _windowBounds;
 
-    // Compact-mode size locking
-    private bool _sizeLocked;
-    private bool _sizeLoggedOnce;
-    private (int W, int H) _compactSize = (1166, 840); // Fixed compact dimensions
-
     public WindowStateManager(Window window, IntPtr hwnd, DragDropHandler dragDropHandler, ICrashReporter crashReporter)
     {
         _window = window;
@@ -83,52 +78,6 @@ public class WindowStateManager
         {
             _crashReporter.Log($"[WindowStateManager.WindowInventory:{context}] Failed: {ex.GetType().Name}: {ex.Message}");
         }
-    }
-
-    /// <summary>
-    /// Enables or disables window size locking for Compact mode.
-    /// When locked, WM_GETMINMAXINFO enforces both min and max track size
-    /// to the fixed compact dimensions, preventing user resizing.
-    /// </summary>
-    public void SetSizeLocked(bool locked) => _sizeLocked = locked;
-
-    /// <summary>
-    /// Captures the current window size and locks to it.
-    /// Used after WinUI's layout pass to lock to the actual rendered size
-    /// rather than a calculated size that may differ slightly.
-    /// </summary>
-    public void LockToCurrentSize()
-    {
-        if (!NativeInterop.GetWindowRect(_hwnd, out var rect)) return;
-        var w = rect.Right - rect.Left;
-        var h = rect.Bottom - rect.Top;
-        if (w < 100 || h < 100) return;
-
-        // Override the compact size with the actual window size (in physical pixels)
-        var dpi = NativeInterop.GetDpiForWindow(_hwnd);
-        var scale = dpi / 96.0;
-        _compactSize = ((int)(w / scale), (int)(h / scale));
-        _sizeLocked = true;
-        _crashReporter.Log($"[WindowStateManager.LockToCurrentSize] Locked to actual size: {w}x{h} (logical: {_compactSize.W}x{_compactSize.H}, DPI={dpi})");
-    }
-
-    /// <summary>
-    /// Resizes the window to the fixed compact dimensions, scaled for the current DPI.
-    /// Preserves the current window position (top-left corner).
-    /// </summary>
-    public void ApplyCompactSize()
-    {
-        var dpi = NativeInterop.GetDpiForWindow(_hwnd);
-        var scale = dpi / 96.0;
-        var w = (int)(_compactSize.W * scale);
-        var h = (int)(_compactSize.H * scale);
-
-        NativeInterop.GetWindowRect(_hwnd, out var rect);
-        var beforeW = rect.Right - rect.Left;
-        var beforeH = rect.Bottom - rect.Top;
-        _crashReporter.Log($"[WindowStateManager.ApplyCompactSize] DPI={dpi}, scale={scale:F2}, target={w}x{h}, before={beforeW}x{beforeH}");
-        NativeInterop.SetWindowPos(_hwnd, IntPtr.Zero,
-            rect.Left, rect.Top, w, h, 0x0040 /* SWP_NOZORDER */);
     }
 
     /// <summary>
@@ -254,25 +203,9 @@ public class WindowStateManager
             var scale = dpi / 96.0;
             var mmi = Marshal.PtrToStructure<NativeInterop.MINMAXINFO>(lParam);
 
-            if (_sizeLocked)
-            {
-                // Lock both min and max to the compact size, preventing user resizing
-                var w = (int)(_compactSize.W * scale);
-                var h = (int)(_compactSize.H * scale);
-                if (!_sizeLoggedOnce)
-                {
-                    _crashReporter.Log($"[WindowStateManager.WndProc] WM_GETMINMAXINFO locked: DPI={dpi}, scale={scale:F2}, lock={w}x{h}");
-                    _sizeLoggedOnce = true;
-                }
-                mmi.ptMinTrackSize = new System.Drawing.Point(w, h);
-                mmi.ptMaxTrackSize = new System.Drawing.Point(w, h);
-            }
-            else
-            {
-                mmi.ptMinTrackSize = new System.Drawing.Point(
-                    (int)(NativeInterop.MinWindowWidth * scale),
-                    (int)(NativeInterop.MinWindowHeight * scale));
-            }
+            mmi.ptMinTrackSize = new System.Drawing.Point(
+                (int)(NativeInterop.MinWindowWidth * scale),
+                (int)(NativeInterop.MinWindowHeight * scale));
 
             Marshal.StructureToPtr(mmi, lParam, false);
             return IntPtr.Zero;
@@ -280,7 +213,7 @@ public class WindowStateManager
 
         // Save window position/size when the user finishes a resize or move drag.
         // This means the bounds are always up to date, surviving End Task or installer-triggered restarts.
-        if (msg == (uint)NativeInterop.WM_EXITSIZEMOVE && !_sizeLocked)
+        if (msg == (uint)NativeInterop.WM_EXITSIZEMOVE)
         {
             SaveWindowBounds();
         }
@@ -562,19 +495,6 @@ public class WindowStateManager
             _windowBounds = (r.Left, r.Top, w, h);
         }
         catch (Exception) { /* Safe to ignore: runs from the window procedure (WM_EXITSIZEMOVE) and shutdown; keeps the previous cached bounds. */ }
-    }
-
-    /// <summary>Restores the cached window bounds, if available.</summary>
-    public void RestoreWindowBounds()
-    {
-        try
-        {
-            if (_windowBounds is var (x, y, w, h) && w >= 400 && h >= 300 && w <= 7680 && h <= 4320)
-            {
-                NativeInterop.SetWindowPos(_hwnd, IntPtr.Zero, x, y, w, h, 0x0040 /* SWP_NOZORDER */);
-            }
-        }
-        catch (Exception ex) { CrashReporter.Log($"[WindowStateManager.RestoreWindowBounds] Failed to restore cached window bounds — {ex.Message}"); }
     }
 
     /// <summary>

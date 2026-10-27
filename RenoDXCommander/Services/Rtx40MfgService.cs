@@ -16,7 +16,6 @@ namespace RenoDXCommander.Services;
 public class Rtx40MfgService
 {
     private const string GitHubApiUrl = "https://api.github.com/repos/dashdogy/RTX40MFG-Unlock/releases/latest";
-    private const string RepoUrl      = "https://github.com/dashdogy/RTX40MFG-Unlock";
 
     /// <summary>The filename of the staged/zip-extracted DLL.</summary>
     public const string StagedDllName = "RTXMFG.dll";

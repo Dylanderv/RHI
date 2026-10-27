@@ -58,7 +58,6 @@ public partial class MainViewModel : ObservableObject
     /// Awaited before the post-init shader sync so packs are available.
     /// </summary>
     private Task? _shaderPackReadyTask;
-    public IShaderPackService ShaderPackServiceInstance => _shaderPackService;
     public IAddonPackService AddonPackServiceInstance => _addonPackService;
     public UltimateAsiLoaderService UalServiceInstance => _ualService;
     public SettingsViewModel Settings => _settingsViewModel;
@@ -883,7 +882,7 @@ public partial class MainViewModel : ObservableObject
     private Dictionary<string, LumaGenericGameEntry> _lumaGenericEntries = new(StringComparer.OrdinalIgnoreCase);
     private HashSet<string> _lumaEnabledGames => _gameNameService.LumaEnabledGames;
     /// <summary>
-    /// Games the user has explicitly disabled Luma for — prevents manifest lumaDefaultGames
+    /// Games the user has explicitly disabled Luma for — prevents automatic Luma enabling
     /// from re-enabling Luma on every refresh.
     /// </summary>
     private HashSet<string> _lumaDisabledGames => _gameNameService.LumaDisabledGames;

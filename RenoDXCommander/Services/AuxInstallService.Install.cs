@@ -416,33 +416,6 @@ public partial class AuxInstallService
         }
     }
 
-    /// <inheritdoc />
-    public void UninstallDllOnly(AuxInstalledRecord record)
-    {
-        // Resolve addon search path for .addon64/.addon32 files
-        var ext = Path.GetExtension(record.InstalledAs);
-        var isAddon = ext.Equals(".addon64", StringComparison.OrdinalIgnoreCase)
-                   || ext.Equals(".addon32", StringComparison.OrdinalIgnoreCase);
-        var deployDir = isAddon
-            ? ModInstallService.GetAddonDeployPath(record.InstallPath)
-            : record.InstallPath;
-        var path = Path.Combine(deployDir, record.InstalledAs);
-        if (File.Exists(path))
-            File.Delete(path);
-        else
-        {
-            var fallback = Path.Combine(record.InstallPath, record.InstalledAs);
-            if (File.Exists(fallback)) File.Delete(fallback);
-        }
-        RemoveRecord(record);
-
-        // Restore any foreign DLL that was backed up when RDXC took over this slot.
-        RestoreForeignDll(path);
-
-        // NOTE: intentionally does NOT call RestoreOriginalIfPresent —
-        // this variant is used when shaders must stay untouched.
-    }
-
     // ── DB ────────────────────────────────────────────────────────────────────────
 
     public List<AuxInstalledRecord> LoadAll() => LoadDb();

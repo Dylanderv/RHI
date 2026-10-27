@@ -74,9 +74,6 @@ public static class ShortcutService
         public uint[] bmiColors;
     }
 
-    private const uint DIB_RGB_COLORS = 0;
-    private const uint SRCCOPY        = 0x00CC0020;
-
     // ── Public API ────────────────────────────────────────────────────────────
 
     public static async Task<string?> CreateGameShortcutAsync(

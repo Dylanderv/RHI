@@ -133,26 +133,6 @@ public partial class MainViewModel
     }
 
     /// <summary>
-    /// Wraps TryEnqueue with ring-buffer recording.
-    /// Records the enqueue call (from calling thread) and wraps the callback to record start/end.
-    /// </summary>
-    internal bool TrackedTryEnqueue(string label, Action callback,
-        Microsoft.UI.Dispatching.DispatcherQueuePriority priority = Microsoft.UI.Dispatching.DispatcherQueuePriority.Normal)
-    {
-        if (DispatcherQueue == null) return false;
-        var callerThread = System.Threading.Thread.CurrentThread;
-        var priorityChar = priority == Microsoft.UI.Dispatching.DispatcherQueuePriority.High ? "H"
-                         : priority == Microsoft.UI.Dispatching.DispatcherQueuePriority.Low  ? "L" : "N";
-        CrashReporter.RecordEnqueueAction($"[{DateTime.Now:HH:mm:ss.fff}] [Enqueue] {priorityChar} T{callerThread.ManagedThreadId}({callerThread.Name ?? "bg"}) {label}");
-        return DispatcherQueue.TryEnqueue(priority, () =>
-        {
-            CrashReporter.RecordEnqueueAction($"[{DateTime.Now:HH:mm:ss.fff}] [Callback:Start] {priorityChar} UI {label}");
-            try { callback(); }
-            finally { CrashReporter.RecordEnqueueAction($"[{DateTime.Now:HH:mm:ss.fff}] [Callback:End] {priorityChar} UI {label}"); }
-        });
-    }
-
-    /// <summary>
     /// Starts a repeating 4-hour timer that re-runs all update checks.
     /// Called after the initial background scan completes.
     /// </summary>
@@ -357,22 +337,6 @@ public partial class MainViewModel
         OnPropertyChanged(nameof(UpdateAllBtnBackground));
         OnPropertyChanged(nameof(UpdateAllBtnForeground));
         OnPropertyChanged(nameof(UpdateAllBtnBorder));
-    }
-
-    /// <summary>Returns true if the current app version differs from the last seen version.</summary>
-    public bool IsNewVersion()
-    {
-        var current = _updateService.CurrentVersion;
-        var currentStr = $"{current.Major}.{current.Minor}.{current.Build}";
-        return LastSeenVersion != currentStr;
-    }
-
-    /// <summary>Marks the current version as seen and saves settings.</summary>
-    public void MarkVersionSeen()
-    {
-        var current = _updateService.CurrentVersion;
-        LastSeenVersion = $"{current.Major}.{current.Minor}.{current.Build}";
-        SaveSettingsPublic();
     }
 
     /// <summary>

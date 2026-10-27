@@ -90,14 +90,6 @@ public class GitHubETagCache
         if (_cache.TryRemove(url, out _)) { _savedUtc.TryRemove(url, out _); Persist(); }
     }
 
-    /// <summary>Removes all cached ETags and bodies, forcing unconditional GETs on all URLs.</summary>
-    public void InvalidateAll()
-    {
-        _cache.Clear();
-        _savedUtc.Clear();
-        Persist();
-    }
-
     /// <summary>
     /// Sends a GET request with ETag caching. If the resource hasn't changed,
     /// returns the cached body without consuming a rate limit point.

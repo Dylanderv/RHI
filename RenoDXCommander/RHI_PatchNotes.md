@@ -77,6 +77,7 @@ To connect: open **Settings → GitHub API** and click **Sign in with GitHub**. 
 - Fixed some unexpected errors in buttons and settings showing a crash report instead of being logged and recovered from.
 - Fixed shader pack deployment re-reading the whole settings file once per pack for every game.
 - Fixed session logs filling up with a "UI responsive" line every second.
+- Removed about 3,000 lines of unused code.
 
 ### Manifest Updates
 

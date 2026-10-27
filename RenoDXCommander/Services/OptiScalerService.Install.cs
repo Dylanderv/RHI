@@ -1615,43 +1615,6 @@ public partial class OptiScalerService
         File.WriteAllLines(iniPath, lines);
     }
 
-    /// <summary>
-    /// Reads the INI file at <paramref name="iniPath"/>, finds the <c>NVNGX_DLSS_Path=</c> line
-    /// (case-insensitive), replaces it with the given <paramref name="dlssFilePath"/> (full path
-    /// to nvngx_dlss.dll), or appends the line if it is missing. OptiScaler expects the full
-    /// file path including the filename, not just the directory.
-    /// Safe to set for all games — OptiScaler auto-locates the game's own copy first.
-    /// </summary>
-    public static void EnforceNvngxDlssPath(string iniPath, string dlssFilePath)
-    {
-        var lines = File.ReadAllLines(iniPath).ToList();
-        var value = $"NVNGX_DLSS_Path={dlssFilePath}";
-        bool found = false;
-        for (int i = 0; i < lines.Count; /* manual increment */)
-        {
-            if (lines[i].TrimStart().StartsWith("NVNGX_DLSS_Path=", StringComparison.OrdinalIgnoreCase))
-            {
-                if (!found)
-                {
-                    lines[i] = value;
-                    found = true;
-                    i++;
-                }
-                else
-                {
-                    lines.RemoveAt(i);
-                }
-            }
-            else
-            {
-                i++;
-            }
-        }
-        if (!found)
-            lines.Add(value);
-        File.WriteAllLines(iniPath, lines);
-    }
-
     // ── Detection ─────────────────────────────────────────────────────────────
 
     /// <inheritdoc />
@@ -1819,12 +1782,6 @@ public partial class OptiScalerService
 
     // ── DLL naming ────────────────────────────────────────────────────────────
 
-    /// <inheritdoc />
-    public string GetEffectiveOsDllName(string gameName)
-    {
-        throw new NotImplementedException();
-    }
-
     // ── Hotkey ────────────────────────────────────────────────────────────────
 
     /// <inheritdoc />
@@ -1919,22 +1876,6 @@ public partial class OptiScalerService
         if (!found)
             lines.Add($"ShortcutKey={vkValue}");
         File.WriteAllLines(iniPath, lines);
-    }
-
-    /// <summary>
-    /// Reads the <c>ShortcutKey=</c> value from the given INI file.
-    /// Returns null if the file does not exist or the key is not found.
-    /// </summary>
-    public static string? ReadShortcutKey(string iniPath)
-    {
-        if (!File.Exists(iniPath)) return null;
-        foreach (var line in File.ReadAllLines(iniPath))
-        {
-            var trimmed = line.TrimStart();
-            if (trimmed.StartsWith("ShortcutKey=", StringComparison.OrdinalIgnoreCase))
-                return trimmed.Substring("ShortcutKey=".Length);
-        }
-        return null;
     }
 
     /// <summary>

@@ -1067,16 +1067,6 @@ public partial class MainViewModel
     }
 
     [RelayCommand]
-    public async Task InstallMod32Async(GameCardViewModel? card)
-    {
-        if (card?.Mod?.SnapshotUrl32 == null) return;
-        var orig = card.Mod.SnapshotUrl;
-        card.Mod.SnapshotUrl = card.Mod.SnapshotUrl32;
-        await InstallModAsync(card);
-        card.Mod.SnapshotUrl = orig;
-    }
-
-    [RelayCommand]
     public void UninstallMod(GameCardViewModel? card)
     {
         // ── Emulator bundle uninstall ─────────────────────────────────────────

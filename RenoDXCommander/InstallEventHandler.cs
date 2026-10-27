@@ -33,32 +33,6 @@ public class InstallEventHandler
 
     private MainViewModel ViewModel => _window.ViewModel;
 
-    public async void CombinedInstallButton_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            if ((sender as FrameworkElement)?.Tag is not GameCardViewModel card) return;
-            if (string.IsNullOrEmpty(card.InstallPath) || !System.IO.Directory.Exists(card.InstallPath))
-            {
-                var folder = await _pickFolderAsync(null);
-                if (folder == null) return;
-                card.InstallPath = folder;
-                ViewModel.SaveLibraryPublic();
-            }
-            // Chain: RenoDX → RE Framework → ReShade (skip components that are N/A)
-            if (card.Mod?.SnapshotUrl != null)
-                await ViewModel.InstallModCommand.ExecuteAsync(card);
-            if (card.RefRowVisibility == Visibility.Visible)
-                await ViewModel.InstallREFrameworkCommand.ExecuteAsync(card);
-            if (card.ReShadeRowVisibility == Visibility.Visible)
-                await ViewModel.InstallReShadeCommand.ExecuteAsync(card);
-        }
-        catch (Exception unhandledEx)
-        {
-            CrashReporter.Log($"[InstallEventHandler.CombinedInstallButton_Click] Unhandled error — {unhandledEx.Message}\n{unhandledEx.StackTrace}");
-        }
-    }
-
     public async void InstallButton_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -98,34 +72,6 @@ public class InstallEventHandler
         catch (Exception unhandledEx)
         {
             CrashReporter.Log($"[InstallEventHandler.InstallButton_Click] Unhandled error — {unhandledEx.Message}\n{unhandledEx.StackTrace}");
-        }
-    }
-
-    public async void Install64Button_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            var card = GetCardFromSender(sender);
-            if (card == null) return;
-            await EnsurePathAndInstall(card, () => ViewModel.InstallModCommand.ExecuteAsync(card));
-        }
-        catch (Exception unhandledEx)
-        {
-            CrashReporter.Log($"[InstallEventHandler.Install64Button_Click] Unhandled error — {unhandledEx.Message}\n{unhandledEx.StackTrace}");
-        }
-    }
-
-    public async void Install32Button_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            var card = GetCardFromSender(sender);
-            if (card == null) return;
-            await EnsurePathAndInstall(card, () => ViewModel.InstallMod32Command.ExecuteAsync(card));
-        }
-        catch (Exception unhandledEx)
-        {
-            CrashReporter.Log($"[InstallEventHandler.Install32Button_Click] Unhandled error — {unhandledEx.Message}\n{unhandledEx.StackTrace}");
         }
     }
 
@@ -563,30 +509,6 @@ public class InstallEventHandler
         }
     }
 
-    public async void ChooseAddonsButton_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            var addonService = ViewModel.AddonPackServiceInstance;
-            var currentSelection = addonService.DownloadedAddonNames.ToList();
-
-            var result = await AddonPopupHelper.ShowAsync(
-                _window.Content.XamlRoot,
-                addonService,
-                currentSelection,
-                AddonPopupHelper.PopupContext.Global);
-
-            if (result != null)
-            {
-                ViewModel.DeployAllAddons();
-            }
-        }
-        catch (Exception unhandledEx)
-        {
-            CrashReporter.Log($"[InstallEventHandler.ChooseAddonsButton_Click] Unhandled error — {unhandledEx.Message}\n{unhandledEx.StackTrace}");
-        }
-    }
-
     public void LumaToggle_Click(object sender, RoutedEventArgs e)
     {
         if (_window.DetailPanelBuilderInstance.CurrentDetailCard != null)
@@ -594,64 +516,6 @@ public class InstallEventHandler
             var card = _window.DetailPanelBuilderInstance.CurrentDetailCard;
             ViewModel.ToggleLumaMode(card);
             // Rebuild detail panel to update author badges
-            _window.PopulateDetailPanel(card);
-            _window.BuildOverridesPanel(card);
-        }
-    }
-
-    public void SwitchToLumaButton_Click(object sender, RoutedEventArgs e)
-    {
-        var card = (sender as FrameworkElement)?.Tag as GameCardViewModel;
-        if (card != null)
-        {
-            ViewModel.ToggleLumaMode(card);
-            // Rebuild detail panel to update author badges
-            _window.PopulateDetailPanel(card);
-            _window.BuildOverridesPanel(card);
-        }
-    }
-
-    public void UeExtendedFlyoutItem_Click(object sender, RoutedEventArgs e)
-    {
-        var card = (sender as FrameworkElement)?.Tag as GameCardViewModel;
-        if (card == null) return;
-
-        ViewModel.ToggleUeExtended(card);
-
-        // Directly update the badge text based on the new state
-        string newLabel = card.UseUeExtended ? "UE Extended" : "Generic UE";
-        _window.DetailGenericText.Text = newLabel;
-
-        // Update the UE button styling
-        if (card.UseUeExtended)
-        {
-            _window.DetailUeExtendedBtn.Background = Brush(ResourceKeys.AccentGreenBgBrush);
-            _window.DetailUeExtendedBtn.Foreground = Brush(ResourceKeys.AccentGreenBrush);
-            _window.DetailUeExtendedBtn.BorderBrush = Brush(ResourceKeys.AccentGreenBorderBrush);
-        }
-        else
-        {
-            _window.DetailUeExtendedBtn.Background = Brush(ResourceKeys.SurfaceOverlayBrush);
-            _window.DetailUeExtendedBtn.Foreground = Brush(ResourceKeys.TextSecondaryBrush);
-            _window.DetailUeExtendedBtn.BorderBrush = Brush(ResourceKeys.BorderStrongBrush);
-        }
-
-        // Update tooltip
-        ToolTipService.SetToolTip(_window.DetailUeExtendedBtn,
-            card.UseUeExtended ? "Disable UE Extended" : "Enable UE Extended");
-
-        // Show inline message or warning dialog
-        if (card.UseUeExtended)
-        {
-            // Show compatibility warning dialog
-            _ = _window.ShowUeExtendedWarningAsync(card);
-            // Force a full panel rebuild to show UE-Extended state
-            _window.PopulateDetailPanel(card);
-            _window.BuildOverridesPanel(card);
-        }
-        else
-        {
-            // Force a full panel rebuild to restore the correct mod info (name, author, badges)
             _window.PopulateDetailPanel(card);
             _window.BuildOverridesPanel(card);
         }

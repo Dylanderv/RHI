@@ -804,20 +804,6 @@ public partial class OptiScalerService
         return null;
     }
 
-    /// <summary>
-    /// Returns the staged DLSS version string, or null if not staged.
-    /// </summary>
-    public static string? GetStagedDlssVersion()
-    {
-        try
-        {
-            return File.Exists(DlssVersionPath)
-                ? File.ReadAllText(DlssVersionPath).Trim()
-                : null;
-        }
-        catch { return null; }
-    }
-
     // ── OptiScaler Nightly staging and update ─────────────────────────────────
 
     /// <inheritdoc />

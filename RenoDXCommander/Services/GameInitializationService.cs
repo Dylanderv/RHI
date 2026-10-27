@@ -11,15 +11,6 @@ namespace RenoDXCommander.Services;
 public class GameInitializationService : IGameInitializationService
 {
     private readonly IGameDetectionService _gameDetectionService;
-    private readonly IWikiService _wikiService;
-    private readonly IManifestService _manifestService;
-    private readonly IModInstallService _installer;
-    private readonly IAuxInstallService _auxInstaller;
-    private readonly IGameLibraryService _gameLibraryService;
-    private readonly IPeHeaderService _peHeaderService;
-    private readonly ILumaService _lumaService;
-    private readonly IReShadeUpdateService _rsUpdateService;
-    private readonly IShaderPackService _shaderPackService;
 
     public GameInitializationService(
         IGameDetectionService gameDetectionService,
@@ -34,15 +25,6 @@ public class GameInitializationService : IGameInitializationService
         IShaderPackService shaderPackService)
     {
         _gameDetectionService = gameDetectionService;
-        _wikiService = wikiService;
-        _manifestService = manifestService;
-        _installer = installer;
-        _auxInstaller = auxInstaller;
-        _gameLibraryService = gameLibraryService;
-        _peHeaderService = peHeaderService;
-        _lumaService = lumaService;
-        _rsUpdateService = rsUpdateService;
-        _shaderPackService = shaderPackService;
     }
 
     /// <summary>

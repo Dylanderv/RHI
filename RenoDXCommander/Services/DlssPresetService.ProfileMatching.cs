@@ -501,14 +501,6 @@ public partial class DlssPresetService
     }
 
     /// <summary>
-    /// Public method: returns true if a profile already exists for this game, false if not.
-    /// </summary>
-    public bool HasProfile(string gameName, string installPath)
-    {
-        return FindProfile(gameName, installPath) != null;
-    }
-
-    /// <summary>
     /// Pre-warms the in-memory profile lookup cache for a game using a cancellable exe scan.
     /// Call this once before a batch of Get*/Set* calls on the same game so all subsequent
     /// calls hit the in-memory cache and never run the expensive recursive exe scan.

@@ -191,7 +191,6 @@ public partial class GameCardViewModel
 
     public string InstalledFileLabel  => InstalledAddonFileName != null ? $"📦 {InstalledAddonFileName}" : "";
     public bool HasNotes              => !string.IsNullOrWhiteSpace(Notes);
-    public bool IsUnityGeneric        => IsGenericMod && EngineHint.Contains("Unity");
     public bool HasDualBitMod         => Mod?.HasBothBitVersions == true;
     public bool HasExtraLinks         => NexusUrl != null || (DiscordUrl != null && EffectiveLumaMode) || IsExternalOnly;
     public bool HasNexusModsUrl       => !string.IsNullOrEmpty(NexusModsUrl);
@@ -208,7 +207,6 @@ public partial class GameCardViewModel
 
     public Visibility SourceBadgeVisibility      => string.IsNullOrEmpty(Source) ? Visibility.Collapsed : Visibility.Visible;
     public Visibility GenericBadgeVisibility     => IsGenericMod ? Visibility.Visible : Visibility.Collapsed;
-    public Visibility EngineBadgeVisibility      => !string.IsNullOrEmpty(EngineHint) ? Visibility.Visible : Visibility.Collapsed;
     public string GraphicsApiLabel               => GraphicsApiDetector.GetMultiLabel(DetectedApis, GraphicsApi);
     public bool HasGraphicsApiBadge              => GraphicsApi != GraphicsApiType.Unknown;
     public Visibility NotesButtonVisibility      => HasNotes ? Visibility.Visible : Visibility.Collapsed;
@@ -239,7 +237,6 @@ public partial class GameCardViewModel
                                                       ? Visibility.Visible : Visibility.Collapsed;
     public Visibility IsHiddenVisibility         => IsHidden ? Visibility.Visible : Visibility.Collapsed;
     public Visibility IsNotHiddenVisibility      => IsHidden ? Visibility.Collapsed : Visibility.Visible;
-    public Visibility NameLinkVisibility         => HasNameUrl ? Visibility.Visible : Visibility.Collapsed;
     public Visibility NoModVisibility            => Visibility.Collapsed;
     public Visibility SwitchToLumaVisibility     => (Mod == null && string.IsNullOrEmpty(InstalledAddonFileName)
                                                       && !EffectiveLumaMode

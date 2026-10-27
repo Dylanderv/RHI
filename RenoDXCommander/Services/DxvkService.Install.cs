@@ -1039,38 +1039,6 @@ public partial class DxvkService
     // ── ReShade INI proxy section helpers (DX8/DX9 proxy mode) ────────
 
     /// <summary>
-    /// Adds or updates the [PROXY] section in reshade.ini to chain to the DXVK DLL.
-    /// Creates reshade.ini if it doesn't exist.
-    /// </summary>
-    private static void AddProxySectionToReShadeIni(string gameDir)
-    {
-        var iniPath = Path.Combine(gameDir, "reshade.ini");
-        try
-        {
-            var lines = File.Exists(iniPath)
-                ? new List<string>(File.ReadAllLines(iniPath))
-                : new List<string>();
-
-            // Remove existing [PROXY] section if present
-            RemoveSection(lines, "PROXY");
-
-            // Append the new [PROXY] section
-            if (lines.Count > 0 && !string.IsNullOrWhiteSpace(lines[^1]))
-                lines.Add(""); // blank line separator
-            lines.Add("[PROXY]");
-            lines.Add("EnableProxyLibrary=1");
-            lines.Add($"ProxyLibrary={ProxyDxvkDllName}");
-
-            File.WriteAllLines(iniPath, lines);
-            CrashReporter.Log($"[DxvkService] Added [PROXY] section to reshade.ini → {ProxyDxvkDllName}");
-        }
-        catch (Exception ex)
-        {
-            CrashReporter.Log($"[DxvkService.AddProxySectionToReShadeIni] Failed — {ex.Message}");
-        }
-    }
-
-    /// <summary>
     /// Removes the [PROXY] section from reshade.ini (or sets EnableProxyLibrary=0).
     /// </summary>
     private static void RemoveProxySectionFromReShadeIni(string gameDir)

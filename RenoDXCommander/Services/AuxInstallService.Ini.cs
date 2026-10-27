@@ -1402,24 +1402,6 @@ public partial class AuxInstallService
     }
 
     /// <summary>
-    /// Removes the KeyOverlay key from the [INPUT] section of the given reshade*.ini file,
-    /// allowing the game to fall back to its template default. If no [INPUT] section or
-    /// KeyOverlay key exists, the file is left unchanged.
-    /// </summary>
-    public static void RemoveOverlayHotkey(string iniFilePath)
-    {
-        if (!File.Exists(iniFilePath)) return;
-
-        var ini = ParseIni(File.ReadAllLines(iniFilePath));
-
-        if (ini.TryGetValue("INPUT", out var inputSection) && inputSection.ContainsKey("KeyOverlay"))
-        {
-            inputSection.Remove("KeyOverlay");
-            WriteIni(iniFilePath, ini);
-        }
-    }
-
-    /// <summary>
     /// Writes or updates VariableListUseTabs in the [OVERLAY] section of the given reshade.ini file.
     /// When true, the ReShade overlay groups effect files into tabs instead of a tree.
     /// </summary>

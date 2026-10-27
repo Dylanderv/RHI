@@ -280,21 +280,6 @@ public class UpdateService : IUpdateService
             CrashReporter.Log($"[UpdateService.LaunchInstaller] Failed to launch installer — {ex.Message}");
         }
     }
-
-    /// <summary>
-    /// Parses a version string from a release tag or name.
-    /// Handles formats like: "1.2.2", "v1.2.2", "RHI-1.2.2", "RHI 1.2.2", "RHI v1.2.2" etc.
-    /// </summary>
-    private Version? ParseVersion(string? input)
-    {
-        if (string.IsNullOrWhiteSpace(input)) return null;
-
-        // Match the first occurrence of a version-like pattern (digits.digits.digits[.digits])
-        var match = Regex.Match(input, @"(\d+\.\d+\.\d+(?:\.\d+)?)");
-        if (!match.Success) return null;
-
-        return Version.TryParse(match.Groups[1].Value, out var ver) ? ver : null;
-    }
 }
 
 /// <summary>

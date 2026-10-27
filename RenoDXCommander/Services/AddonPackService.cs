@@ -1126,22 +1126,6 @@ public class AddonPackService : IAddonPackService
         return results.AsReadOnly();
     }
 
-    /// <inheritdoc />
-    public bool IsCustomAddon(string packageName)
-    {
-        if (!Directory.Exists(CustomAddonsDir)) return false;
-        return File.Exists(Path.Combine(CustomAddonsDir, packageName + ".addon64"))
-            || File.Exists(Path.Combine(CustomAddonsDir, packageName + ".addon32"));
-    }
-
-    /// <inheritdoc />
-    public string? GetCustomAddonPath(string packageName, bool is32Bit)
-    {
-        var ext = is32Bit ? ".addon32" : ".addon64";
-        var path = Path.Combine(CustomAddonsDir, packageName + ext);
-        return File.Exists(path) ? path : null;
-    }
-
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     // ── Download helpers ──────────────────────────────────────────────────────────
@@ -1506,8 +1490,6 @@ public class AddonPackService : IAddonPackService
 
     // Expose paths for testing and other services
     internal static string GetStagingDir() => StagingDir;
-    internal static string GetCachePath() => CachePath;
-    internal static string GetVersionsJsonPath() => VersionsJsonPath;
 
     /// <summary>
     /// Adds a deployed addon filename to the tracker for the given install path.

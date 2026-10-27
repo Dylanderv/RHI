@@ -395,11 +395,6 @@ public class UltimateAsiLoaderService
         => !string.IsNullOrEmpty(installPath)
            && _auxInstaller.FindRecord(gameName, installPath, AddonType) != null;
 
-    public string? InstalledDllName(string gameName, string? installPath)
-        => string.IsNullOrEmpty(installPath)
-            ? null
-            : _auxInstaller.FindRecord(gameName, installPath, AddonType)?.InstalledAs;
-
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     /// <summary>Returns true if the given DLL name at this game's path is managed by RHI (ReShade/OptiScaler/DC).</summary>

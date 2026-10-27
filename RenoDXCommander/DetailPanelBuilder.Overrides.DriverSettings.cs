@@ -11,7 +11,6 @@ namespace RenoDXCommander;
 public partial class DetailPanelBuilder
 {
     // Used by BuildNvidiaProfileBody to update the DLSS collapsed summary (still needed)
-    private StackPanel? _nvBodyPanel;
     private StackPanel? _nvHeaderRow;
 
     // Separate header row reference for the Driver Settings section summary

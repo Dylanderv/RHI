@@ -649,9 +649,6 @@ public class ModInstallService : IModInstallService
         catch { return false; }
     }
 
-    public static bool IsValidGameFolder(string path) =>
-        Directory.Exists(path) && Directory.GetFiles(path, "*.exe").Length > 0;
-
     // ── Addon search path resolution ──────────────────────────────────────────────
 
     /// <summary>
