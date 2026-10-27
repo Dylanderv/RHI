@@ -978,9 +978,19 @@ public class AddonPackService : IAddonPackService
             var destFile = Path.Combine(installPath, deployName + bitnessExt);
             try
             {
-                File.Copy(stagingFile, destFile, overwrite: true);
-                deployedFileNames.Add(deployName + bitnessExt);
-                CrashReporter.Log($"[AddonPackService.DeployAddonsForGame] Deployed '{deployName}{bitnessExt}' to '{installPath}'.");
+                // File.Copy keeps the source's modified time, so same size + time means this copy is already current.
+                var src = new FileInfo(stagingFile);
+                var dst = new FileInfo(destFile);
+                if (dst.Exists && dst.Length == src.Length && dst.LastWriteTimeUtc == src.LastWriteTimeUtc)
+                {
+                    deployedFileNames.Add(deployName + bitnessExt);
+                }
+                else
+                {
+                    File.Copy(stagingFile, destFile, overwrite: true);
+                    deployedFileNames.Add(deployName + bitnessExt);
+                    CrashReporter.Log($"[AddonPackService.DeployAddonsForGame] Deployed '{deployName}{bitnessExt}' to '{installPath}'.");
+                }
             }
             catch (Exception ex)
             {

@@ -42,6 +42,7 @@ To connect: open **Settings → GitHub API** and click **Sign in with GitHub**. 
 - Fixed addon updates (such as MFG Ada Unlock) not reaching a game if the game was running when the update downloaded. RHI showed the new version but the game kept the old file. Outdated copies are now refreshed every time RHI starts.
 - Fixed MFG Ada Unlock installed from the Extras section sometimes not receiving updates.
 - Fixed MFG Ada Unlock being put back into a game after it was removed, the next time it updated.
+- Fixed some addons (such as ReShade Screenshot Discord Fix) being copied into games again on every launch even when they hadn't changed.
 
 **Luma**
 - Fixed Luma mods that are now only available on Nexus Mods (such as Mass Effect: Andromeda) showing an update that Update All couldn't install, leaving the buttons purple. These mods are now checked against Nexus Mods, so they only show an update when a newer version is posted there, and the Update button opens the Nexus download page.
@@ -56,6 +57,7 @@ To connect: open **Settings → GitHub API** and click **Sign in with GitHub**. 
 **Automatic Updates**
 - Fixed Automatic Updates repeating the same update work once for every game that had an update, and reinstalling ReShade into every game rather than just the outdated ones.
 - Fixed Automatic Updates also updating games that were running, which could fail and show a crash report. Running games are now updated once they close, as intended.
+- Fixed Update All showing a crash report for a game set to the Custom ReShade channel when its ReShade DLL had been removed from the Custom folder. The game is now skipped and the card shows why.
 
 **Ultimate ASI Loader**
 - Fixed ASI Loader updates never reaching games: RHI downloaded new versions but didn't copy them into game folders. Games with the ASI Loader installed are now brought up to date automatically at startup, including games that were running when an update arrived.

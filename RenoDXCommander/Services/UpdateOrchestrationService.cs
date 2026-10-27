@@ -256,6 +256,12 @@ public class UpdateOrchestrationService : IUpdateOrchestrationService
                     card.FadeMessage(m => card.RsActionMessage = m, card.RsActionMessage);
                 });
             }
+            catch (FileNotFoundException ex)
+            {
+                // Expected when the game uses the Custom channel and its DLL was removed from the Custom folder.
+                dispatcherQueue?.TryEnqueue(() => card.RsActionMessage = "❌ ReShade DLL not found — see Custom ReShade folder");
+                _crashReporter.Log($"[UpdateOrchestrationService.UpdateAllReShade] Skipped '{card.GameName}' — {ex.Message.Replace('\n', ' ')}");
+            }
             catch (Exception ex)
             {
                 card.RsActionMessage = $"❌ Failed: {ex.Message}";
