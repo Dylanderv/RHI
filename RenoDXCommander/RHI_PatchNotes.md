@@ -8,6 +8,7 @@ To connect: open **Settings → GitHub API** and click **Sign in with GitHub**. 
 
 ### Changes
 
+- Epic games are now detected when you use the new Epic Games Launcher (preview). Switching to it removes the game list RHI used to read, so Epic games stopped showing up.
 - Faster game list loading at startup. Games on engines without special handling in RHI (such as Frostbite, RAGE or Northlight) are no longer fully scanned on every launch: RHI uses the engine listed on PCGamingWiki, and otherwise only scans again when the game's folder changes (for example after an update) or when you use Full Refresh.
 - Much less data used by update checks. RHI no longer downloads every installed RenoDX addon in full on each update check just to see whether it changed (several hundred MB per check with the generic Unity or UE-Extended addons installed). Unchanged addons are now confirmed with a tiny request; only addons that actually changed are downloaded.
 
