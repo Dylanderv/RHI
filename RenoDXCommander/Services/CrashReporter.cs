@@ -48,7 +48,11 @@ public static class CrashReporter
             SingleReader = true,
             SingleWriter = false,
             FullMode = BoundedChannelFullMode.DropOldest,
-        });
+        },
+        _ => Interlocked.Increment(ref _droppedEntries));
+
+    /// <summary>Entries dropped because the channel was full; reported in the log once writing catches up.</summary>
+    private static int _droppedEntries;
 
     /// <summary>Background task that drains the log channel and writes to disk.</summary>
     private static Task? _drainTask;
@@ -92,16 +96,27 @@ public static class CrashReporter
     {
         try
         {
-            await foreach (var entry in _logChannel.Reader.ReadAllAsync())
+            // Write everything that's queued in one file append instead of opening the file per line.
+            var batch = new StringBuilder();
+            while (await _logChannel.Reader.WaitToReadAsync().ConfigureAwait(false))
             {
+                batch.Clear();
+                var dropped = Interlocked.Exchange(ref _droppedEntries, 0);
+                if (dropped > 0)
+                    batch.Append($"[{DateTime.Now:HH:mm:ss.fff}] [CrashReporter] {dropped} log line(s) dropped (queue full)").Append(Environment.NewLine);
+                while (batch.Length < 256 * 1024 && _logChannel.Reader.TryRead(out var entry))
+                    batch.Append(entry).Append(Environment.NewLine);
+                if (batch.Length == 0) continue;
+
                 try
                 {
                     lock (_verboseLogLock)
                     {
                         // Roll to a new file when the current one exceeds 20 MB.
                         // Prevents unbounded growth during long freezes.
-                        var entryBytes = Encoding.UTF8.GetByteCount(entry) + 2; // +2 for newline
-                        if (_sessionLogBytes + entryBytes > MaxSessionLogBytes)
+                        var text = batch.ToString();
+                        var bytes = Encoding.UTF8.GetByteCount(text);
+                        if (_sessionLogBytes + bytes > MaxSessionLogBytes)
                         {
                             var timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
                             SessionLogPath = Path.Combine(LogDir, $"session_{timestamp}.txt");
@@ -111,8 +126,8 @@ public static class CrashReporter
                             _sessionLogBytes = 0;
                             PruneSessionLogs();
                         }
-                        File.AppendAllText(SessionLogPath, entry + Environment.NewLine, Encoding.UTF8);
-                        _sessionLogBytes += entryBytes;
+                        File.AppendAllText(SessionLogPath, text, Encoding.UTF8);
+                        _sessionLogBytes += bytes;
                     }
                 }
                 catch { /* Never let logging crash the app */ }

@@ -97,8 +97,8 @@ Measured from logs on a 102-game library.
 - [x] **HTTP hygiene.** Done: 30 s timeout for all `GitHubETagCache` API calls (returns cached body or null). Then: the remaining API calls now use the cache (30 s timeout); the undisposed responses have `using` (Nexus 429 retry and RenoDX fallback attempts dispose the earlier response).
   - The 10-minute global `HttpClient` timeout also applies to small API calls. Use a short per-request timeout (`CancellationTokenSource`) for API calls, and keep the long timeout for downloads.
   - About 21 `HttpResponseMessage`s are never disposed. Add `using`.
-- [ ] **UI-thread work.** `LoadCacheAndBuildCardsAsync` and the saves do file and JSON work on the UI thread. Move it to `Task.Run`.
-- [~] **Heartbeat and logging.** Done: "UI responsive" logged on last-action change or once a minute. Still to do: reentrancy guard (each failing tick past the 2nd schedules another restart task; read the UI Freeze section first), keep one StreamWriter open, thread/level fields.
+- [-] **UI-thread work.** `LoadCacheAndBuildCardsAsync` and the saves do file and JSON work on the UI thread. Move it to `Task.Run`. Measured 27 Oct: the whole cache phase is ~0.7 s once at startup (104 cards), and settings saves already run on the debounce timer thread. Not worth moving: cards are bound view models (must be created on the UI thread) and this is freeze-sensitive code.
+- [x] **Heartbeat and logging.** Done: "UI responsive" logged on last-action change or once a minute. Then: only one auto-restart can be pending (`_restartPending`, cleared if the restart is cancelled); the log writer appends everything queued in one write instead of one file open per line, and logs how many lines were dropped when the queue overflowed. Not done: thread/level fields (would change the log format).
   - The heartbeat logs "UI responsive" every second (about 3,600 lines/hour). Log only on state change or every N minutes.
   - The heartbeat has no reentrancy guard.
   - `CrashReporter.Log` opens the file once per line.

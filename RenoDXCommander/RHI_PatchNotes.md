@@ -4,7 +4,7 @@
 
 To connect: open **Settings → GitHub API** and click **Sign in with GitHub**. Takes about 30 seconds. Or paste a Personal Access Token (PAT) — no scopes needed, just generate one at [github.com/settings/tokens](https://github.com/settings/tokens) and paste it in.
 
-## v2.8.8
+## v2.8.8 Beta
 
 ### Changes
 
@@ -16,17 +16,15 @@ To connect: open **Settings → GitHub API** and click **Sign in with GitHub**. 
 **Shaders**
 - Fixed RHI deleting and re-copying the shaders in every ReShade game's `reshade-shaders` folder on each launch and Refresh, even when nothing had changed. Only new or changed shaders are now copied and only removed ones deleted, so games that are running keep their shaders.
 
-**Background downloads**
+**Downloads and GitHub requests**
 - Fixed the ReShade nightly build being downloaded again on every launch even when it hadn't changed.
-- Fixed the addon update check running twice at startup, using extra GitHub requests.
-- Fixed a slow or stuck GitHub request being able to hold up the startup update checks for minutes. GitHub requests now give up after 30 seconds.
-- Fixed RHI forgetting GitHub responses each time it closed, so every launch re-fetched unchanged data and counted against GitHub's hourly request limit. Unchanged data is now confirmed without using up the limit.
-- Fixed DLSS Enabler, DOF Fix, DLSS 5, DLSS FG 20/30, Ultimate ASI Loader and Luma update checks downloading the full release list every time. They now use the same cached checks as everything else (which don't count towards GitHub's request limit when you're signed in), and features that read the same release list now share one request.
-- Fixed reaching GitHub's request limit also blocking RHI's game database downloads, which don't count towards that limit.
+- Fixed RHI using far more GitHub requests than needed, which made it easier to hit GitHub's hourly limit (when that happens, downloads and update checks stop working for a while). RHI now remembers what it has already checked, even after it's closed, and only downloads release information again when something has changed. The addon update check also no longer runs twice at startup.
+- Fixed a slow or stuck GitHub request being able to hold up the startup update checks for minutes. Requests now give up after 30 seconds.
+- Fixed hitting GitHub's request limit also stopping RHI's game database from updating.
 
 **DLSS / Streamline version display**
-- Fixed swapping to an older DLSS or Streamline version showing the newer version number in the UI immediately after the swap. The background scan running concurrently could capture the pre-swap version and overwrite the display on merge. The merge now re-reads versions from disk so the displayed version always reflects what's actually installed.
-- Fixed the version dropdown showing the wrong entry when an installed version string is a prefix of another (e.g. 310.9.1 was matching 310.9.16 because of a StartsWith check in the item lookup). Now uses exact matching.
+- Fixed swapping to an older DLSS or Streamline version still showing the newer version number afterwards. RHI now always shows the version that's actually in the game folder.
+- Fixed the version dropdown sometimes showing the wrong version when two versions start the same way (for example, 310.9.1 being shown as 310.9.16).
 - Fixed RHI showing a crash report when a DLSS or Streamline version couldn't be changed — for example on Game Pass games after the game updated, when the game is running, or when Windows blocks access to the folder. RHI now explains what went wrong and puts the dropdown back to the version that's actually installed.
 - Fixed a failed DLSS swap sometimes leaving the game without its DLSS file. The original file is now put back if the new one can't be copied in.
 - Fixed Batch Deploy stopping partway when one game failed. It now carries on with the remaining games and lists any that failed, with the reason, in the summary.
@@ -37,13 +35,16 @@ To connect: open **Settings → GitHub API** and click **Sign in with GitHub**. 
 - Fixed updating an F5 or DLSS NR install forgetting which OptiScaler variant the game uses.
 
 **RTX 40 MFG Unlock**
-- Fixed RTX 40 MFG updates showing the new version in RHI while games kept running the old file. Since v1.5 the mod ships as `MFGUnlocker.dll`, which RHI wasn't picking up, and updates weren't being copied into game folders at startup. RHI now downloads the current release once and updates every game with RTX 40 MFG installed automatically — no reinstall needed.
+- Fixed RTX 40 MFG updates showing the new version in RHI while games kept running the old file. Since v1.5 the mod's file has a different name (`MFGUnlocker.dll`), which RHI wasn't picking up. RHI now updates every game with RTX 40 MFG installed automatically, with no reinstall needed.
 - Games that miss an update (for example because the game was running) are now caught up the next time RHI starts.
 
 **MFG Ada Unlock and other addons**
 - Fixed addon updates (such as MFG Ada Unlock) not reaching a game if the game was running when the update downloaded. RHI showed the new version but the game kept the old file. Outdated copies are now refreshed every time RHI starts.
 - Fixed MFG Ada Unlock installed from the Extras section sometimes not receiving updates.
 - Fixed MFG Ada Unlock being put back into a game after it was removed, the next time it updated.
+
+**Luma**
+- Fixed Luma mods that are now only available on Nexus Mods (such as Mass Effect: Andromeda) showing an update that Update All couldn't install, leaving the buttons purple. These mods are now checked against Nexus Mods, so they only show an update when a newer version is posted there, and the Update button opens the Nexus download page.
 
 **Update History**
 - Fixed Luma updates not appearing in Update History.
@@ -77,8 +78,8 @@ To connect: open **Settings → GitHub API** and click **Sign in with GitHub**. 
 
 - Fixed many errors being silently ignored instead of written to the log, making problems easier to diagnose from your session logs.
 - Fixed some unexpected errors in buttons and settings showing a crash report instead of being logged and recovered from.
-- Fixed shader pack deployment re-reading the whole settings file once per pack for every game.
-- Fixed session logs filling up with a "UI responsive" line every second.
+- Fixed session logs filling up with a "UI responsive" line every second, which made them harder to read when reporting a problem.
+- Fixed the automatic restart after a UI freeze being able to start more than one copy of RHI.
 - Removed about 3,000 lines of unused code.
 
 ### Manifest Updates
@@ -90,6 +91,7 @@ To connect: open **Settings → GitHub API** and click **Sign in with GitHub**. 
 - Added DLSS FG Preset C.
 - Added Depth3D Cursor Add-on as a managed addon.
 - Added engine version for Valor Mortis (Unreal Engine 5.7.3).
+- Added SD Shaders by Starodubysko as a managed shader pack (Extra): colour grading shaders for SDR and HDR.
 
 ---
 

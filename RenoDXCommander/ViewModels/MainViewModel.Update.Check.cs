@@ -115,39 +115,8 @@ public partial class MainViewModel
                 _crashReporter.Log($"[MainViewModel.CheckForUpdatesAsync] Nexus update check failed (rate-limited path) — {ex.Message}");
             }
 
-            // ── Nexus update check for Luma mods (rate-limited path) ─────────────
-            if (nexusEnabled)
-            try
-            {
-                var lumaModsToCheck = cards
-                    .Where(c => c.LumaStatus == GameStatus.Installed
-                             && !c.IsHidden
-                             && c.LumaNexusUrl != null
-                             && c.LumaRecord?.NexusFileId != null)  // only premium installs have a reliable baseline
-                    .Select(c => (c.GameName, c.LumaNexusUrl!, c.LumaRecord!.NexusFileId!.Value.ToString()))
-                    .ToList();
-
-                if (lumaModsToCheck.Count > 0)
-                {
-                    _crashReporter.Log($"[MainViewModel.CheckForUpdatesAsync] Checking {lumaModsToCheck.Count} Luma Nexus mod(s) for updates (rate-limited path)");
-                    var lumaUpdated = await _nexusUpdateService.CheckForUpdatesAsync(lumaModsToCheck).ConfigureAwait(false);
-                    if (lumaUpdated.Count > 0)
-                    {
-                        DispatcherQueue?.TryEnqueue(() =>
-                        {
-                            foreach (var card in cards.Where(c => lumaUpdated.Contains(c.GameName)))
-                            {
-                                if (card.LumaStatus == GameStatus.Installed)
-                                    card.LumaStatus = GameStatus.UpdateAvailable;
-                            }
-                        });
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _crashReporter.Log($"[MainViewModel.CheckForUpdatesAsync] Luma Nexus update check failed (rate-limited path) — {ex.Message}");
-            }
+            // ── Nexus update check for Luma mods (rate-limited path) ──
+            if (nexusEnabled) await CheckLumaNexusUpdatesAsync(cards).ConfigureAwait(false);
 
             // Record successful check time even if rate-limited, so we don't hammer the API again immediately
             _settingsViewModel.LastUpdateCheckUtc = DateTime.UtcNow.ToString("o");
@@ -467,39 +436,8 @@ public partial class MainViewModel
             _crashReporter.Log($"[MainViewModel.CheckForUpdatesAsync] Nexus update check failed — {ex.Message}");
         }
 
-        // ── Nexus Mods update check for Luma mods ─────────────────────────────
-        if (nexusEnabled)
-        try
-        {
-            var lumaModsToCheck = cards
-                .Where(c => c.LumaStatus == GameStatus.Installed
-                         && !c.IsHidden
-                         && c.LumaNexusUrl != null
-                         && c.LumaRecord?.NexusFileId != null)  // only premium installs have a reliable baseline
-                .Select(c => (c.GameName, c.LumaNexusUrl!, c.LumaRecord!.NexusFileId!.Value.ToString()))
-                .ToList();
-
-            if (lumaModsToCheck.Count > 0)
-            {
-                _crashReporter.Log($"[MainViewModel.CheckForUpdatesAsync] Checking {lumaModsToCheck.Count} Luma Nexus mod(s) for updates");
-                var lumaUpdated = await _nexusUpdateService.CheckForUpdatesAsync(lumaModsToCheck).ConfigureAwait(false);
-                if (lumaUpdated.Count > 0)
-                {
-                    DispatcherQueue?.TryEnqueue(() =>
-                    {
-                        foreach (var card in cards.Where(c => lumaUpdated.Contains(c.GameName)))
-                        {
-                            if (card.LumaStatus == GameStatus.Installed)
-                                card.LumaStatus = GameStatus.UpdateAvailable;
-                        }
-                    });
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            _crashReporter.Log($"[MainViewModel.CheckForUpdatesAsync] Luma Nexus update check failed — {ex.Message}");
-        }
+        // ── Nexus Mods update check for Luma mods ──
+        if (nexusEnabled) await CheckLumaNexusUpdatesAsync(cards).ConfigureAwait(false);
         try
         {
             var emuCards = cards.Where(c => c.IsEmulator && c.Status == GameStatus.Installed && c.EmulatorAddonNames?.Count > 0).ToList();
@@ -590,5 +528,53 @@ public partial class MainViewModel
         SaveLibrary();
         _crashReporter.Log("[MainViewModel.CheckForUpdatesAsync] Update check complete — cooldown timestamp saved");
     }
-}
 
+    /// <summary>Baseline key for Luma mods checked by Nexus date, kept apart from RenoDX Nexus baselines (keyed by game name).</summary>
+    internal static string LumaNexusKey(string gameName) => "Luma|" + gameName;
+
+    /// <summary>
+    /// Nexus update check for Luma mods.
+    /// Nexus Premium installs compare the installed Nexus file ID (keyed by game name).
+    /// Other mods the wiki lists as Nexus-only compare the mod's Nexus "updated" date with a baseline
+    /// taken when first seen; a new install (new InstalledAt) resets the baseline.
+    /// </summary>
+    private async Task CheckLumaNexusUpdatesAsync(IReadOnlyList<GameCardViewModel> cards)
+    {
+        try
+        {
+            var installed = cards
+                .Where(c => c.LumaStatus is GameStatus.Installed or GameStatus.UpdateAvailable
+                         && !c.IsHidden
+                         && c.LumaNexusUrl != null
+                         && c.LumaRecord != null)
+                .ToList();
+
+            var premium = installed
+                .Where(c => c.LumaRecord!.NexusFileId != null && c.LumaStatus == GameStatus.Installed)
+                .Select(c => (c.GameName, c.LumaNexusUrl!, (string?)c.LumaRecord!.NexusFileId!.Value.ToString()));
+            var nexusOnly = installed
+                .Where(c => c.LumaRecord!.NexusFileId == null && c.LumaMod?.DownloadUrl == null)
+                .Select(c => (LumaNexusKey(c.GameName), c.LumaNexusUrl!, (string?)c.LumaRecord!.InstalledAt.ToString("o")));
+            var toCheck = premium.Concat(nexusOnly).ToList();
+            if (toCheck.Count == 0) return;
+
+            _crashReporter.Log($"[MainViewModel.CheckLumaNexusUpdatesAsync] Checking {toCheck.Count} Luma Nexus mod(s) for updates");
+            var updated = await _nexusUpdateService.CheckForUpdatesAsync(toCheck).ConfigureAwait(false);
+            if (updated.Count == 0) return;
+
+            DispatcherQueue?.TryEnqueue(() =>
+            {
+                foreach (var card in installed.Where(c => updated.Contains(c.GameName) || updated.Contains(LumaNexusKey(c.GameName))))
+                {
+                    if (card.LumaStatus == GameStatus.Installed)
+                        card.LumaStatus = GameStatus.UpdateAvailable;
+                }
+                NotifyUpdateButtonChanged();
+            });
+        }
+        catch (Exception ex)
+        {
+            _crashReporter.Log($"[MainViewModel.CheckLumaNexusUpdatesAsync] Luma Nexus update check failed — {ex.Message}");
+        }
+    }
+}

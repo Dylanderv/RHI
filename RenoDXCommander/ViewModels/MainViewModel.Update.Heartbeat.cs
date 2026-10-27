@@ -9,6 +9,8 @@ public partial class MainViewModel
     // Heartbeat log throttle (only touched by the heartbeat timer callback).
     private string? _heartbeatLoggedAction;
     private long _heartbeatLoggedAtTicks;
+    // 1 while an auto-restart is pending, so later failing ticks don't schedule more restarts.
+    private int _restartPending;
 
     /// <summary>
     /// Starts a 1-second heartbeat timer. On each tick it posts a High-priority probe to the UI thread.
@@ -450,8 +452,11 @@ public partial class MainViewModel
                 // Known signature → fast path (~5s total including diagnostics above).
                 // Non-matching stalls → slow 45s path (gives time to collect more evidence).
                 var restartDelaySec = isKnownSignature ? 3 : 45;
+                if (System.Threading.Interlocked.CompareExchange(ref _restartPending, 1, 0) != 0)
+                    return; // a restart is already scheduled from an earlier tick
                 _ = Task.Run(async () =>
                 {
+                    bool exiting = false;
                     try
                     {
                         await Task.Delay(restartDelaySec * 1000).ConfigureAwait(false);
@@ -519,6 +524,7 @@ public partial class MainViewModel
                         CrashReporter.LogSync($"[Heartbeat.Restart] Restarting RHI — {(isKnownSignature ? "known-signature fast" : "slow")} path, restart #{recentRestarts + 1} in 5-min window");
                         // Wait for the dump and log flush to finish before exiting — cap at 5s
                         try { await dumpCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false); } catch { }
+                        exiting = true;
                         CrashReporter.Shutdown();
                         var exePath = Environment.ProcessPath;
                         if (!string.IsNullOrEmpty(exePath))
@@ -526,6 +532,11 @@ public partial class MainViewModel
                         Environment.Exit(2);
                     }
                     catch (Exception ex) { CrashReporter.LogSync($"[Heartbeat.Restart] Auto-restart failed: {ex.GetType().Name}: {ex.Message}"); }
+                    finally
+                    {
+                        // Cancelled (dispatcher recovered, loop guard, shutdown) or failed: allow a later stall to schedule again.
+                        if (!exiting) System.Threading.Interlocked.Exchange(ref _restartPending, 0);
+                    }
                 });
 
             }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
