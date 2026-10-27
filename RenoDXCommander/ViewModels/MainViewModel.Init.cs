@@ -150,6 +150,7 @@ public partial class MainViewModel
         _resolvedPathCache.Clear();
         _addonFileCache.Clear();
         _bitnessCache.Clear();
+        _engineFolderStamps.Clear();
         _dlssStreamlineService.ClearScanCaches();
 
         // Validate installed.json — remove records where the addon file no longer exists on disk
@@ -306,6 +307,7 @@ public partial class MainViewModel
                 _resolvedPathCache = savedLib.ResolvedPathCache ?? new(StringComparer.OrdinalIgnoreCase);
                 _addonFileCache    = savedLib.AddonFileCache    ?? new(StringComparer.OrdinalIgnoreCase);
                 _bitnessCache      = savedLib.BitnessCache      ?? new(StringComparer.OrdinalIgnoreCase);
+                _engineFolderStamps = savedLib.EngineFolderStamps ?? new(StringComparer.OrdinalIgnoreCase);
                 LastSelectedGameName = savedLib.LastSelectedGame;
 
                 // Restore DXVK per-game overrides from saved library

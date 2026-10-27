@@ -69,6 +69,30 @@ public partial class MainViewModel
         var newEngineTypeCache   = new ConcurrentDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var newResolvedPathCache = new ConcurrentDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var newBitnessCache      = new ConcurrentDictionary<string, MachineType>(StringComparer.OrdinalIgnoreCase);
+        var newEngineFolderStamps = new ConcurrentDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        // Unknown-engine reuse: one folder fingerprint per game per run, shared by the
+        // "is the cached Unknown still valid?" check and the value saved for next launch.
+        var computedStamps = new ConcurrentDictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        string? StampFor(string rootKey, string root) =>
+            computedStamps.GetOrAdd(rootKey, _ => EngineFolderStamp.Compute(root));
+        bool UnknownStillValid(string rootKey, string root) =>
+            _engineFolderStamps.TryGetValue(rootKey, out var saved) && saved == StampFor(rootKey, root);
+        int engineScans = 0, unknownReused = 0, pcgwSkips = 0;
+
+        // True when PCGW names an engine other than the ones detection looks for. Unreal (any
+        // version), Unity and RE Engine — or no PCGW entry — still get the full scan, so a wrong
+        // or missing PCGW entry can't stop a supported engine being detected.
+        bool PcgwSaysOtherEngine(string gameName, out string? pcgwEngine)
+        {
+            pcgwEngine = _pcgwService.GetCachedApiInfo(gameName)?.Engine;
+            if (string.IsNullOrWhiteSpace(pcgwEngine)) return false;
+            return !(pcgwEngine.Contains("Unreal", StringComparison.OrdinalIgnoreCase)
+                  || pcgwEngine.Contains("Unity", StringComparison.OrdinalIgnoreCase)
+                  || pcgwEngine.Contains("RE Engine", StringComparison.OrdinalIgnoreCase));
+        }
+        long engineScanMs = 0;
+        var detectTimer = System.Diagnostics.Stopwatch.StartNew();
 
         var gameInfos = detectedGames.AsParallel().Select(game =>
         {
@@ -99,16 +123,31 @@ public partial class MainViewModel
                 engine = engineOverride;
             }
             else if (_engineTypeCache.TryGetValue(rootKey, out var cachedEngine)
-                && !string.Equals(cachedEngine, nameof(EngineType.Unknown), StringComparison.OrdinalIgnoreCase)
                 && _resolvedPathCache.TryGetValue(rootKey, out var cachedPath)
-                && Directory.Exists(cachedPath))
+                && Directory.Exists(cachedPath)
+                && (!string.Equals(cachedEngine, nameof(EngineType.Unknown), StringComparison.OrdinalIgnoreCase)
+                    || UnknownStillValid(rootKey, game.InstallPath)))
             {
+                // Known engines are reused as-is. Unknown is reused only while the folder
+                // fingerprint is unchanged — a game still downloading or just patched re-scans.
                 installPath = cachedPath;
                 engine = Enum.TryParse<EngineType>(cachedEngine, out var e) ? e : EngineType.Unknown;
+                if (engine == EngineType.Unknown) Interlocked.Increment(ref unknownReused);
+            }
+            else if (PcgwSaysOtherEngine(game.Name, out var pcgwEngine))
+            {
+                // PCGW names an engine RHI has no special handling for (Frostbite, RAGE, Northlight…),
+                // so the marker scan would only end in Unknown. Just find the exe folder.
+                installPath = _gameDetectionService.DetectExeFolder(game.InstallPath);
+                engine = EngineType.Unknown;
+                Interlocked.Increment(ref pcgwSkips);
             }
             else
             {
+                var scanTimer = System.Diagnostics.Stopwatch.StartNew();
                 (installPath, engine) = _gameDetectionService.DetectEngineAndPath(game.InstallPath);
+                Interlocked.Increment(ref engineScans);
+                Interlocked.Add(ref engineScanMs, scanTimer.ElapsedMilliseconds);
             }
 
             // Apply manifest engine override (takes priority over auto-detection and cache)
@@ -117,6 +156,11 @@ public partial class MainViewModel
             // Record for saving
             newEngineTypeCache[rootKey]   = engine.ToString();
             newResolvedPathCache[rootKey] = installPath;
+            if (engine == EngineType.Unknown && engineOverrideLabel == null)
+            {
+                var stamp = StampFor(rootKey, game.InstallPath);
+                if (stamp != null) newEngineFolderStamps[rootKey] = stamp;
+            }
 
             // Apply per-game install path overrides (e.g. Cyberpunk 2077 → bin\x64)
             // Supports pipe-separated paths (try each, use first that exists)
@@ -189,6 +233,10 @@ public partial class MainViewModel
         _engineTypeCache   = new Dictionary<string, string>(newEngineTypeCache, StringComparer.OrdinalIgnoreCase);
         _resolvedPathCache = new Dictionary<string, string>(newResolvedPathCache, StringComparer.OrdinalIgnoreCase);
         _bitnessCache      = new Dictionary<string, MachineType>(newBitnessCache, StringComparer.OrdinalIgnoreCase);
+        _engineFolderStamps = new Dictionary<string, string>(newEngineFolderStamps, StringComparer.OrdinalIgnoreCase);
+        _crashReporter.Log($"[BuildCards] Engine detection: {detectTimer.ElapsedMilliseconds} ms for {gameInfos.Count} games — "
+            + $"{engineScans} folder scans ({engineScanMs} ms total), {unknownReused} unchanged Unknown reused, "
+            + $"{pcgwSkips} skipped via PCGW engine");
         var newAddonFileCache = new ConcurrentDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var safeAddonCache = new ConcurrentDictionary<string, bool>(addonCache, StringComparer.OrdinalIgnoreCase);
         var cardBag = new ConcurrentBag<GameCardViewModel>();

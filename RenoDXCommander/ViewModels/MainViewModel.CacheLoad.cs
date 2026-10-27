@@ -366,7 +366,7 @@ public partial class MainViewModel
         _gameLibraryService.Save(detectedGames, addonCache, _hiddenGames, _favouriteGames, _manualGames,
             _engineTypeCache, _resolvedPathCache, _addonFileCache, _bitnessCache, LastSelectedGameName,
             dxvkEnabledGames, dxvkInstalledVersions, excludeFromUpdateAllDxvk, updateSnapshot, dlssPathsCache,
-            rsVersions, rdxVersions);
+            rsVersions, rdxVersions, _engineFolderStamps);
     }
 
     /// <summary>
@@ -395,6 +395,7 @@ public partial class MainViewModel
         _resolvedPathCache = savedLib.ResolvedPathCache ?? new(StringComparer.OrdinalIgnoreCase);
         _addonFileCache    = savedLib.AddonFileCache    ?? new(StringComparer.OrdinalIgnoreCase);
         _bitnessCache      = savedLib.BitnessCache      ?? new(StringComparer.OrdinalIgnoreCase);
+        _engineFolderStamps = savedLib.EngineFolderStamps ?? new(StringComparer.OrdinalIgnoreCase);
         LastSelectedGameName = savedLib.LastSelectedGame;
 
         // 4. Convert cached games to DetectedGame list and deduplicate

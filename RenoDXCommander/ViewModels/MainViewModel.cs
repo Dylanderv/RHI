@@ -633,6 +633,8 @@ public partial class MainViewModel : ObservableObject
     /// <summary>Transient — stores Control UE install options between dialog and post-install step.</summary>
     private Services.ControlUeInstallOptions? _controlUeInstallOptions;
     private Dictionary<string, MachineType> _bitnessCache = new(StringComparer.OrdinalIgnoreCase);
+    // rootPath (lower) → folder fingerprint for games cached as EngineType.Unknown (see EngineFolderStamp).
+    private Dictionary<string, string> _engineFolderStamps = new(StringComparer.OrdinalIgnoreCase);
     /// <summary>Game names that have DXVK enabled (loaded from saved library).</summary>
     private HashSet<string> _dxvkEnabledGames = new(StringComparer.OrdinalIgnoreCase);
     /// <summary>Game names excluded from DXVK Update All (loaded from saved library).</summary>

@@ -6,6 +6,10 @@ To connect: open **Settings → GitHub API** and click **Sign in with GitHub**. 
 
 ## v2.8.8
 
+### Changes
+
+- Faster game list loading at startup. Games on engines without special handling in RHI (such as Frostbite, RAGE or Northlight) are no longer fully scanned on every launch: RHI uses the engine listed on PCGamingWiki, and otherwise only scans again when the game's folder changes (for example after an update) or when you use Full Refresh.
+
 ### Bug Fixes
 
 **DLSS / Streamline version display**

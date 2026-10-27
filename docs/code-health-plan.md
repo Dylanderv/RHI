@@ -72,10 +72,11 @@ Tick items off as they land. Add the commit hash next to an item when it's done.
 
 Measured from logs on a 102-game library.
 
-- [ ] **Cache "Unknown" engine results.**
+- [x] **Cache "Unknown" engine results.** Done: reused while an `EngineFolderStamp` fingerprint (folder mtimes, two levels deep) matches. Measured: Unknown re-scans were ~1.6–2.7 s warm and the main cause of the ~11 s cold-launch gap (other games queue behind them in the parallel loop). The log line `[BuildCards] Engine detection: …` shows the per-launch time. Also: when PCGW names an engine other than Unreal/Unity/RE Engine, only the exe folder is looked up (`DetectExeFolder`). Follow-up: The Sinking City Remastered is UE5 per PCGW but detects as Unknown.
   - `BuildCards` takes about 13–15 s per launch.
   - 39 of 103 games are cached as Unknown, and those get a full folder scan every launch.
   - Cache the Unknown result as well. Re-check only when the install folder's timestamp changes or on a manual Refresh.
+- [ ] **Shader sync touches every game folder on every launch.** `SyncGameFolder` creates/removes files in `reshade-shaders\Shaders` and `\Textures` (and the game root) for ~38 games each launch, even when nothing changed. Make it a no-op when the folder already matches. (Found while fixing the Unknown-engine cache: it changed folder times every launch, so the stamp now uses folder/exe names instead.)
 - [ ] **Silent auto-update runs Update All for every card.**
   - It runs Update All once per game that needs an update, so the work is N².
   - `UpdateAllReShade` targets every installed card, not just outdated ones.

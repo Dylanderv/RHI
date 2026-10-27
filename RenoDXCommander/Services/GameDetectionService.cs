@@ -210,6 +210,9 @@ public partial class GameDetectionService : IGameDetectionService
     /// </summary>
     public void ClearEngineCache() => _engineCache.Clear();
 
+    /// <inheritdoc />
+    public string DetectExeFolder(string rootPath) => FindShallowExeFolder(rootPath) ?? rootPath;
+
     private (string installPath, EngineType engine) DetectEngineAndPathCore(string rootPath)
     {
         // --- Unreal Engine (UE4/5) ---
