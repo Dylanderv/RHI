@@ -9,8 +9,12 @@ To connect: open **Settings → GitHub API** and click **Sign in with GitHub**. 
 ### Changes
 
 - Faster game list loading at startup. Games on engines without special handling in RHI (such as Frostbite, RAGE or Northlight) are no longer fully scanned on every launch: RHI uses the engine listed on PCGamingWiki, and otherwise only scans again when the game's folder changes (for example after an update) or when you use Full Refresh.
+- Much less data used by update checks. RHI no longer downloads every installed RenoDX addon in full on each update check just to see whether it changed (several hundred MB per check with the generic Unity or UE-Extended addons installed). Unchanged addons are now confirmed with a tiny request; only addons that actually changed are downloaded.
 
 ### Bug Fixes
+
+**Background downloads**
+- Fixed the ReShade nightly build being downloaded again on every launch even when it hadn't changed.
 
 **DLSS / Streamline version display**
 - Fixed swapping to an older DLSS or Streamline version showing the newer version number in the UI immediately after the swap. The background scan running concurrently could capture the pre-swap version and overwrite the display on merge. The merge now re-reads versions from disk so the displayed version always reflects what's actually installed.
@@ -39,6 +43,10 @@ To connect: open **Settings → GitHub API** and click **Sign in with GitHub**. 
 
 **NR Cost Scaler / DLSS FG 20/30**
 - Fixed updates to NR Cost Scaler and DLSS FG for RTX 20/30 not being copied into game folders when found at startup.
+
+**Automatic Updates**
+- Fixed Automatic Updates repeating the same update work once for every game that had an update, and reinstalling ReShade into every game rather than just the outdated ones.
+- Fixed Automatic Updates also updating games that were running, which could fail and show a crash report. Running games are now updated once they close, as intended.
 
 **Ultimate ASI Loader**
 - Fixed ASI Loader updates never reaching games: RHI downloaded new versions but didn't copy them into game folders. Games with the ASI Loader installed are now brought up to date automatically at startup, including games that were running when an update arrived.

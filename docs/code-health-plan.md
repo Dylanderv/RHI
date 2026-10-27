@@ -77,11 +77,11 @@ Measured from logs on a 102-game library.
   - 39 of 103 games are cached as Unknown, and those get a full folder scan every launch.
   - Cache the Unknown result as well. Re-check only when the install folder's timestamp changes or on a manual Refresh.
 - [ ] **Shader sync touches every game folder on every launch.** `SyncGameFolder` creates/removes files in `reshade-shaders\Shaders` and `\Textures` (and the game root) for ~38 games each launch, even when nothing changed. Make it a no-op when the folder already matches. (Found while fixing the Unknown-engine cache: it changed folder times every launch, so the stamp now uses folder/exe names instead.)
-- [ ] **Silent auto-update runs Update All for every card.**
+- [x] **Silent auto-update runs Update All for every card.** Done: one call per component with only outdated, non-running games (`UpdateAll*Async(IReadOnlyList<GameCardViewModel>)` overloads); retries update one game (Vulkan = whole group). Manual Update All unchanged (still reinstalls ReShade into every RS game; revisit if wanted).
   - It runs Update All once per game that needs an update, so the work is N².
   - `UpdateAllReShade` targets every installed card, not just outdated ones.
   - Run Update All once, and only for outdated cards.
-- [ ] **Stop full downloads on every launch.**
+- [x] **Stop full downloads on every launch.** Done: RenoDX snapshot checks send If-None-Match with the ETag of the installed build (`renodx_snapshot_etags.json`); measured ~310 MB per check before. ReShade nightly size check uses a 1-byte range GET (nightly.link 404s on HEAD). Note: renodx.com ignores ETags, so clshortfuse addons still download (~3 MB each).
   - RenoDX snapshot addons are downloaded in full just to compare with the installed copy. Use ETag or Content-Length, or the release asset's `updated_at`.
   - ReShade nightly: the `nightly.link` HEAD returns 404, so 2.4 MB downloads every launch. Compare Content-Length from a ranged GET instead (see the CLAUDE.md pitfall).
   - UAL: fixed by the per-bitness flag in 1.2.

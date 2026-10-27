@@ -12,16 +12,19 @@ public partial class MainViewModel
     private IEnumerable<GameCardViewModel> UpdateAllEligible() =>
         _updateOrchestrationService.UpdateAllEligible(_allCards);
 
-    public async Task UpdateAllRenoDxAsync()
+    public Task UpdateAllRenoDxAsync() => UpdateAllRenoDxAsync(_allCards);
+
+    /// <summary>Updates only the given cards (the silent auto-updater passes the outdated, non-running ones).</summary>
+    public async Task UpdateAllRenoDxAsync(IReadOnlyList<GameCardViewModel> cards)
     {
         // Capture games with Nexus update flags BEFORE running updates
-        var nexusFlaggedGames = _allCards
+        var nexusFlaggedGames = cards
             .Where(c => c.Status == GameStatus.UpdateAvailable && !c.IsExternalOnly)
             .Select(c => c.GameName)
             .ToList();
 
         await _updateOrchestrationService.UpdateAllRenoDxAsync(
-            _allCards, _dllOverrideService, DispatcherQueue,
+            cards, _dllOverrideService, DispatcherQueue,
             () => SaveLibrary(),
             () =>
             {
@@ -40,18 +43,21 @@ public partial class MainViewModel
         NotifyUpdateButtonChanged();
 
         // Update emulator cards (bundle re-download)
-        var emuCards = _allCards
+        var emuCards = cards
             .Where(c => c.IsEmulator && c.Status == GameStatus.UpdateAvailable && !c.ExcludeFromUpdateAllRenoDx)
             .ToList();
-        _crashReporter.Log($"[UpdateAllRenoDxAsync] Emulator cards eligible: {emuCards.Count} (total emulators: {_allCards.Count(c => c.IsEmulator)}, with UpdateAvailable: {_allCards.Count(c => c.IsEmulator && c.Status == GameStatus.UpdateAvailable)})");
+        _crashReporter.Log($"[UpdateAllRenoDxAsync] Emulator cards eligible: {emuCards.Count} (total emulators: {cards.Count(c => c.IsEmulator)}, with UpdateAvailable: {cards.Count(c => c.IsEmulator && c.Status == GameStatus.UpdateAvailable)})");
         foreach (var card in emuCards)
             await InstallEmulatorAddonsAsync(card);
     }
 
-    public async Task UpdateAllReShadeAsync()
+    public Task UpdateAllReShadeAsync() => UpdateAllReShadeAsync(_allCards);
+
+    /// <summary>Updates only the given cards (the silent auto-updater passes the outdated, non-running ones).</summary>
+    public async Task UpdateAllReShadeAsync(IReadOnlyList<GameCardViewModel> cards)
     {
         await _updateOrchestrationService.UpdateAllReShadeAsync(
-            _allCards, _dllOverrideService, DispatcherQueue,
+            cards, _dllOverrideService, DispatcherQueue,
             () =>
             {
                 HasUpdatesAvailable = AnyUpdateAvailable;
@@ -66,9 +72,12 @@ public partial class MainViewModel
             keepRsIniUpdatedResolver: (gameName, store) => GetKeepRsIniUpdated(gameName, store));
     }
 
-    public async Task UpdateAllUlAsync()
+    public Task UpdateAllUlAsync() => UpdateAllUlAsync(_allCards);
+
+    /// <summary>Updates only the given cards (the silent auto-updater passes the outdated, non-running ones).</summary>
+    public async Task UpdateAllUlAsync(IReadOnlyList<GameCardViewModel> cards)
     {
-        var ulCards = _allCards.Where(c => c.UlStatus == GameStatus.UpdateAvailable && !c.IsHidden && !c.ExcludeFromUpdateAllUl).ToList();
+        var ulCards = cards.Where(c => c.UlStatus == GameStatus.UpdateAvailable && !c.IsHidden && !c.ExcludeFromUpdateAllUl).ToList();
         if (ulCards.Count == 0) return;
 
         foreach (var card in ulCards)
@@ -87,9 +96,12 @@ public partial class MainViewModel
         });
     }
 
-    public async Task UpdateAllDcAsync()
+    public Task UpdateAllDcAsync() => UpdateAllDcAsync(_allCards);
+
+    /// <summary>Updates only the given cards (the silent auto-updater passes the outdated, non-running ones).</summary>
+    public async Task UpdateAllDcAsync(IReadOnlyList<GameCardViewModel> cards)
     {
-        var dcCards = _allCards.Where(c => c.DcStatus == GameStatus.UpdateAvailable && !c.IsHidden && !c.ExcludeFromUpdateAllDc).ToList();
+        var dcCards = cards.Where(c => c.DcStatus == GameStatus.UpdateAvailable && !c.IsHidden && !c.ExcludeFromUpdateAllDc).ToList();
         if (dcCards.Count == 0) return;
 
         foreach (var card in dcCards)
@@ -108,9 +120,12 @@ public partial class MainViewModel
         });
     }
 
-    public async Task UpdateAllDxvkAsync()
+    public Task UpdateAllDxvkAsync() => UpdateAllDxvkAsync(_allCards);
+
+    /// <summary>Updates only the given cards (the silent auto-updater passes the outdated, non-running ones).</summary>
+    public async Task UpdateAllDxvkAsync(IReadOnlyList<GameCardViewModel> cards)
     {
-        var dxvkCards = GetUpdateAllDxvkEligibleCards(_allCards);
+        var dxvkCards = GetUpdateAllDxvkEligibleCards(cards);
         if (dxvkCards.Count == 0) return;
 
         // Ensure global variant staging is available
@@ -170,9 +185,12 @@ public partial class MainViewModel
                          && !c.IsHidden)
                 .ToList();
 
-    public async Task UpdateAllOsAsync()
+    public Task UpdateAllOsAsync() => UpdateAllOsAsync(_allCards);
+
+    /// <summary>Updates only the given cards (the silent auto-updater passes the outdated, non-running ones).</summary>
+    public async Task UpdateAllOsAsync(IReadOnlyList<GameCardViewModel> cards)
     {
-        var osCards = _allCards.Where(c => c.OsStatus == GameStatus.UpdateAvailable && !c.IsHidden && !c.ExcludeFromUpdateAllOs).ToList();
+        var osCards = cards.Where(c => c.OsStatus == GameStatus.UpdateAvailable && !c.IsHidden && !c.ExcludeFromUpdateAllOs).ToList();
         if (osCards.Count == 0) return;
 
         var stableCards  = osCards.Where(c => GetOsVariant(c.GameName, c.Source ?? "") == "Stable" || GetOsVariant(c.GameName, c.Source ?? "") == "").ToList();
@@ -259,10 +277,13 @@ public partial class MainViewModel
         });
     }
 
-    public async Task UpdateAllRefAsync()
+    public Task UpdateAllRefAsync() => UpdateAllRefAsync(_allCards);
+
+    /// <summary>Updates only the given cards (the silent auto-updater passes the outdated, non-running ones).</summary>
+    public async Task UpdateAllRefAsync(IReadOnlyList<GameCardViewModel> cards)
     {
         await _updateOrchestrationService.UpdateAllREFrameworkAsync(
-            _allCards, DispatcherQueue,
+            cards, DispatcherQueue,
             () =>
             {
                 HasUpdatesAvailable = AnyUpdateAvailable;
@@ -273,9 +294,12 @@ public partial class MainViewModel
             });
     }
 
-    public async Task UpdateAllLumaAsync()
+    public Task UpdateAllLumaAsync() => UpdateAllLumaAsync(_allCards);
+
+    /// <summary>Updates only the given cards (the silent auto-updater passes the outdated, non-running ones).</summary>
+    public async Task UpdateAllLumaAsync(IReadOnlyList<GameCardViewModel> cards)
     {
-        var lumaCards = _allCards.Where(c => c.LumaStatus == GameStatus.UpdateAvailable
+        var lumaCards = cards.Where(c => c.LumaStatus == GameStatus.UpdateAvailable
             && !c.IsHidden && c.LumaMod?.DownloadUrl != null).ToList();
         if (lumaCards.Count == 0) return;
 
@@ -301,10 +325,13 @@ public partial class MainViewModel
         });
     }
 
-    public async Task UpdateAllDofFixAsync()
+    public Task UpdateAllDofFixAsync() => UpdateAllDofFixAsync(_allCards);
+
+    /// <summary>Updates only the given cards (the silent auto-updater passes the outdated, non-running ones).</summary>
+    public async Task UpdateAllDofFixAsync(IReadOnlyList<GameCardViewModel> cards)
     {
         await _updateOrchestrationService.UpdateAllDofFixAsync(
-            _allCards, _dofFixService, DispatcherQueue,
+            cards, _dofFixService, DispatcherQueue,
             () =>
             {
                 HasUpdatesAvailable = AnyUpdateAvailable;

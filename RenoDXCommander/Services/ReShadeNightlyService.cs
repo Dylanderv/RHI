@@ -196,23 +196,29 @@ public class ReShadeNightlyService
     }
 
     /// <summary>
-    /// Gets the Content-Length of the remote zip via a HEAD request.
-    /// Returns the size in bytes, or -1 on failure.
+    /// Gets the size of the remote zip. Returns the size in bytes, or -1 on failure.
+    /// nightly.link answers HEAD with 404, so this sends a GET for the first byte only
+    /// (Range: bytes=0-0). nightly.link redirects to blob storage, which returns
+    /// 206 with "Content-Range: bytes 0-0/{total}". Only headers are read.
     /// </summary>
     private async Task<long> GetRemoteContentLengthAsync(string url)
     {
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Head, url);
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Range = new System.Net.Http.Headers.RangeHeaderValue(0, 0);
             using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
             if (!response.IsSuccessStatusCode)
             {
-                CrashReporter.Log($"[ReShadeNightlyService.GetRemoteContentLengthAsync] HEAD returned {response.StatusCode}");
+                CrashReporter.Log($"[ReShadeNightlyService.GetRemoteContentLengthAsync] Size check returned {response.StatusCode}");
                 return -1;
             }
 
-            var length = response.Content.Headers.ContentLength ?? -1;
-            CrashReporter.Log($"[ReShadeNightlyService.GetRemoteContentLengthAsync] Content-Length={length}");
+            // 206 → total from Content-Range; 200 (range ignored) → Content-Length of the full file.
+            var length = response.Content.Headers.ContentRange?.Length
+                ?? (response.StatusCode == System.Net.HttpStatusCode.OK ? response.Content.Headers.ContentLength : null)
+                ?? -1;
+            CrashReporter.Log($"[ReShadeNightlyService.GetRemoteContentLengthAsync] Remote size={length}");
             return length;
         }
         catch (Exception ex)

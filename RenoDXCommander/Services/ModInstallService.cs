@@ -408,10 +408,33 @@ public class ModInstallService : IModInstallService
             // Download the remote file to a temp path.
             // Use Cache-Control: no-cache to bypass CDN caches (GitHub Pages can serve
             // stale content for up to 10 minutes after a push, preventing update detection).
-            var req = new HttpRequestMessage(HttpMethod.Get, url);
+            using var req = new HttpRequestMessage(HttpMethod.Get, url);
             req.Headers.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue { NoCache = true };
-            var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead);
+
+            // Conditional request: if the last check of this URL saw the exact build that's
+            // installed, send its ETag. An unchanged file then answers 304 with no body instead
+            // of a full download (the generic Unity addons alone are ~100 MB each).
+            var known = SnapshotETags.Get(url);
+            bool conditional = false;
+            if (known != null
+                && !string.IsNullOrEmpty(record.FileHash)
+                && known.Hash.Equals(record.FileHash, StringComparison.OrdinalIgnoreCase)
+                && System.Net.Http.Headers.EntityTagHeaderValue.TryParse(known.ETag, out var knownTag))
+            {
+                req.Headers.IfNoneMatch.Add(knownTag);
+                conditional = true;
+            }
+
+            using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead);
+            if (resp.StatusCode == System.Net.HttpStatusCode.NotModified)
+            {
+                CrashReporter.Log($"[ModInstallService.CheckForUpdateByDownloadAsync] '{Path.GetFileName(localFile)}' unchanged (304)");
+                return false;
+            }
             if (!resp.IsSuccessStatusCode) return false;
+            var responseETag = resp.Headers.ETag?.ToString();
+            if (conditional)
+                CrashReporter.Log($"[ModInstallService.CheckForUpdateByDownloadAsync] '{Path.GetFileName(localFile)}' changed or server ignored ETag — downloading");
 
             // Reject HTML responses — GitHub Pages may return a 200 with an HTML error
             // page instead of the actual binary file.
@@ -443,6 +466,10 @@ public class ModInstallService : IModInstallService
             }
 
             var remoteHash = await ComputeHashAsync(tempFile);
+
+            // Remember which build this ETag describes, for the next conditional check.
+            if (!string.IsNullOrEmpty(responseETag))
+                SnapshotETags.Set(url, responseETag, remoteHash);
 
             // Compare against the stored install-time hash first — this is the most
             // reliable reference because it was computed from the exact bytes we
@@ -499,6 +526,34 @@ public class ModInstallService : IModInstallService
             if (File.Exists(tempFile)) try { File.Delete(tempFile); } catch (Exception cleanupEx) { CrashReporter.Log($"[ModInstallService.CheckForUpdateByDownloadAsync] Failed to clean up temp file '{tempFile}' — {cleanupEx.Message}"); }
             return false;
         }
+    }
+
+    /// <summary>
+    /// Snapshot URL → (ETag, SHA-256 of the build that ETag described). Lets the update check
+    /// send If-None-Match so unchanged rolling-tag addons aren't re-downloaded every launch.
+    /// </summary>
+    private static class SnapshotETags
+    {
+        public sealed class Entry
+        {
+            public string ETag { get; set; } = "";
+            public string Hash { get; set; } = "";
+        }
+
+        private static readonly string FilePath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "RHI", "renodx_snapshot_etags.json");
+
+        public static Entry? Get(string url)
+        {
+            var all = SafeJsonFile.Read<Dictionary<string, Entry>>(FilePath, out _);
+            return all != null && all.TryGetValue(url, out var e) && !string.IsNullOrEmpty(e.ETag) ? e : null;
+        }
+
+        public static void Set(string url, string etag, string hash) =>
+            SafeJsonFile.Update<Dictionary<string, Entry>>(FilePath,
+                all => all[url] = new Entry { ETag = etag, Hash = hash },
+                "ModInstallService.SnapshotETags", SafeJsonFile.Indented);
     }
 
     // ── Uninstall ─────────────────────────────────────────────────────────────────
