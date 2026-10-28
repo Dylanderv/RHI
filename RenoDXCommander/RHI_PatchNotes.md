@@ -98,6 +98,7 @@ To connect: open **Settings → GitHub API** and click **Sign in with GitHub**. 
 - Added engine version for Valor Mortis (Unreal Engine 5.7.3).
 - Added SD Shaders by Starodubysko as a managed shader pack (Extra): colour grading shaders for SDR and HDR.
 - Fixed Metro 2033 Redux not matching its NVIDIA driver profile (Metro Redux).
+- Added engine version for DAEMON X MACHINA (Unreal Engine 4.20.3).
 
 ---
 
