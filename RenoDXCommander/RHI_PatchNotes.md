@@ -97,6 +97,7 @@ To connect: open **Settings → GitHub API** and click **Sign in with GitHub**. 
 - Added Depth3D Cursor Add-on as a managed addon.
 - Added engine version for Valor Mortis (Unreal Engine 5.7.3).
 - Added SD Shaders by Starodubysko as a managed shader pack (Extra): colour grading shaders for SDR and HDR.
+- Fixed Metro 2033 Redux not matching its NVIDIA driver profile (Metro Redux).
 
 ---
 

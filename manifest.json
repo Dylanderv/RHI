@@ -1383,7 +1383,8 @@
   "_comment_nvidia": "=== NVIDIA PROFILE \u0026 DLSS ===\nprofileNameOverrides redirects a game to the correct NVIDIA driver profile when auto-matching picks the wrong one.\nprofileExeExclusions adds exe names to the exclusion list for profile matching (prevents false matches).\ndlssPresets injects new DLSS preset options (SR/RR/FG) into the dropdowns without a client update.",
   "profileNameOverrides": {
     "Dead Space": "Dead Space (Remake)",
-    "Lords of the Fallen": "Lords of the Fallen (2023)"
+    "Lords of the Fallen": "Lords of the Fallen (2023)",
+    "Metro 2033 Redux": "Metro Redux"
   },
   "dlssPresets": {
     "sr": [
