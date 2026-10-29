@@ -286,7 +286,7 @@
             <Grid x:Name="SelectorPanel" Visibility="Visible">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
-                                Margin="0,40,0,40" Width="620">
+                                Margin="0,40,0,40" Width="840">
 
                         <TextBlock Text="RenoDXdb Editor" FontSize="26" FontWeight="Bold"
                                    Foreground="#8888FF" HorizontalAlignment="Center"/>
@@ -309,6 +309,8 @@
                         <!-- DB choice cards — all three in one row -->
                         <Grid Margin="0,0,0,16">
                             <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="16"/>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="16"/>
                                 <ColumnDefinition Width="*"/>
@@ -420,6 +422,40 @@
                                     </StackPanel>
                                 </Border>
                             </Button>
+                            <!-- Source card -->
+                            <Button Grid.Column="6" Click="OpenSource_Click"
+                                    Padding="0" BorderThickness="0" Background="Transparent"
+                                    VerticalAlignment="Stretch">
+                                <Border Background="#2E1E1E" BorderBrush="#AA5544"
+                                        BorderThickness="1" CornerRadius="8" Padding="20,18"
+                                        Height="178" VerticalAlignment="Stretch">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
+                                                    <Setter Property="BorderBrush" Value="#DD7766"/>
+                                                    <Setter Property="Background"  Value="#3A2420"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <StackPanel>
+                                        <TextBlock Text="Source Games" FontSize="16" FontWeight="SemiBold"
+                                                   Foreground="#FFBBAA"/>
+                                        <TextBlock Text="RenoDXdb-source.json" Foreground="#AA6655"
+                                                   FontSize="11" Margin="0,4,0,8"/>
+                                        <TextBlock Text="Source engine game entries — 32/64-bit addon, comments."
+                                                   Foreground="#AAAACC" FontSize="11"
+                                                   TextWrapping="Wrap"/>
+                                        <Border Margin="0,12,0,0"
+                                                Background="#241614" CornerRadius="4" Padding="8,4">
+                                            <TextBlock x:Name="SourceStatusLabel"
+                                                       Text="Not synced" Foreground="#664433"
+                                                       FontSize="11"/>
+                                        </Border>
+                                    </StackPanel>
+                                </Border>
+                            </Button>
                         </Grid>
 
                         <!-- Or open local -->
@@ -511,6 +547,16 @@
                                 <ComboBoxItem Content="upgrade"/>
                             </ComboBox>
 
+                            <Label x:Name="UBitnessLabel" Content="Bitness" Margin="0,8,0,0" Visibility="Collapsed"/>
+                            <ComboBox x:Name="UBitnessCombo" SelectionChanged="Field_Changed" Visibility="Collapsed">
+                                <ComboBoxItem Content="(unknown)" Tag=""/>
+                                <ComboBoxItem Content="32-bit" Tag="32"/>
+                                <ComboBoxItem Content="64-bit" Tag="64"/>
+                                <ComboBoxItem Content="Both 32 and 64-bit" Tag="both"/>
+                            </ComboBox>
+
+                            <StackPanel x:Name="UpgradesSection">
+
                             <!-- Upgrades two-column grid -->
                             <Label Content="Upgrades" Margin="0,8,0,0"/>
                             <TextBlock Text="Each row is one upgrade: pick a format token and a size token. Leave both blank to add no upgrade."
@@ -534,6 +580,7 @@
                             <Button Content="+ Add Upgrade Row" HorizontalAlignment="Left"
                                     Margin="0,8,0,0" Padding="10,4"
                                     Click="AddUpgradeRow_Click"/>
+                            </StackPanel>
 
                             <Label Content="Comments" Margin="0,8,0,0"/>
                             <TextBox x:Name="UCommentsBox" TextChanged="Field_Changed"

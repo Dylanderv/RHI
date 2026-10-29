@@ -55,6 +55,17 @@ public class UnrealEntry : INotifyPropertyChanged
         set { _comments = value; OnPropertyChanged(nameof(Comments)); }
     }
 
+    private string? _bitness;
+
+    /// <summary>Source DB only: "32" | "64" | "both". Never written for Unreal/Unity.</summary>
+    [JsonPropertyName("Bitness")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Bitness
+    {
+        get => _bitness;
+        set { _bitness = value; OnPropertyChanged(nameof(Bitness)); }
+    }
+
     [JsonIgnore]
     public string DisplayName => $"{Name}  [{Status}]";
 

@@ -84,11 +84,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var namedTask  = DbSyncService.FetchAsync(DbType.NamedMods, _githubToken);
         var unrealTask = DbSyncService.FetchAsync(DbType.Unreal,    _githubToken);
         var unityTask  = DbSyncService.FetchAsync(DbType.Unity,     _githubToken);
-        await Task.WhenAll(namedTask, unrealTask, unityTask);
+        var sourceTask = DbSyncService.FetchAsync(DbType.Source,    _githubToken);
+        await Task.WhenAll(namedTask, unrealTask, unityTask, sourceTask);
 
         var named  = namedTask.Result;
         var unreal = unrealTask.Result;
         var unity  = unityTask.Result;
+        var source = sourceTask.Result;
 
         _namedModsRemoteContent = named.Success  ? named.RemoteContent  : null;
         _unrealRemoteContent    = unreal.Success ? unreal.RemoteContent : null;
@@ -105,23 +107,42 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             await DbSyncService.SaveLocalAsync(DbType.Unity, unity.RemoteContent!);
         }
+        if (source.Success)
+        {
+            await DbSyncService.SaveLocalAsync(DbType.Source, source.RemoteContent!);
+        }
 
-        Dispatcher.Invoke(() => UpdateSelectorCards(named, unreal, unity));
+        Dispatcher.Invoke(() => UpdateSelectorCards(named, unreal, unity, source));
 
         if (!isStartup)
         {
             if (named.Success  && named.HasDiff)  Dispatcher.Invoke(() => HandleDiff(DbType.NamedMods, named));
             if (unreal.Success && unreal.HasDiff) Dispatcher.Invoke(() => HandleDiff(DbType.Unreal,    unreal));
             if (unity.Success  && unity.HasDiff)  Dispatcher.Invoke(() => HandleDiff(DbType.Unity,     unity));
+            if (source.Success && source.HasDiff) Dispatcher.Invoke(() => HandleDiff(DbType.Source,    source));
         }
 
         if (!named.Success && !unreal.Success && !unity.Success)
             SetSyncStatus($"Sync failed — {named.Error ?? unreal.Error ?? unity.Error}", "#EE5555");
-        else if (!named.Success || !unreal.Success || !unity.Success)
+        else if (!named.Success || !unreal.Success || !unity.Success || (!source.Success && !IsNotFound(source)))
             SetSyncStatus("Sync partially failed — using local copies where available", "#FFCC44");
         else
             SetSyncStatus($"Synced at {DateTime.Now:HH:mm:ss}", "#55CC77");
     }
+
+    /// <summary>True when the fetch failed only because the file isn't in rhi-repo yet.</summary>
+    private static bool IsNotFound(SyncResult r) =>
+        !r.Success && (r.Error?.Contains("404") ?? false);
+
+    /// <summary>Serialises the open Unreal/Unity/Source list in that DB's own shape.</summary>
+    private string SerializeEngineDb(JsonSerializerOptions opts) => _activeDb switch
+    {
+        DbType.Unity  => JsonSerializer.Serialize(
+            _allUnreal.Select(e => new UnityEntry(e.Name, e.Status, e.Upgrades, e.Comments)).ToList(), opts),
+        DbType.Source => JsonSerializer.Serialize(
+            _allUnreal.Select(e => new SourceEntry(e.Name, e.Status, e.Bitness, e.Comments)).ToList(), opts),
+        _             => JsonSerializer.Serialize(_allUnreal.ToList(), opts),
+    };
 
     private void SetSyncStatus(string text, string hex)
     {
@@ -133,7 +154,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         });
     }
 
-    private void UpdateSelectorCards(SyncResult named, SyncResult unreal, SyncResult unity)
+    private void UpdateSelectorCards(SyncResult named, SyncResult unreal, SyncResult unity, SyncResult source)
     {
         if (named.Success)
         {
@@ -169,6 +190,22 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 UnityStatusLabel.Text       = $"✗ Fetch failed — {unity.Error}";
                 UnityStatusLabel.Foreground = new SolidColorBrush(Color.FromRgb(0xEE, 0x55, 0x55));
             }
+        }
+
+        if (source.Success)
+        {
+            SourceStatusLabel.Text       = source.HasDiff ? "⚠ Remote differs from local — open to review" : "✓ Up to date";
+            SourceStatusLabel.Foreground = source.HasDiff ? new SolidColorBrush(Colors.Orange) : new SolidColorBrush(Color.FromRgb(0x55, 0xCC, 0x77));
+        }
+        else if (IsNotFound(source))
+        {
+            SourceStatusLabel.Text       = "Not on GitHub yet — open to create, then Push";
+            SourceStatusLabel.Foreground = new SolidColorBrush(Colors.Orange);
+        }
+        else
+        {
+            SourceStatusLabel.Text       = $"✗ Fetch failed — {source.Error}";
+            SourceStatusLabel.Foreground = new SolidColorBrush(Color.FromRgb(0xEE, 0x55, 0x55));
         }
     }
 
@@ -233,9 +270,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         string newContent;
         if (_isUnrealMode)
         {
-            newContent = _activeDb == DbType.Unity
-                ? JsonSerializer.Serialize(_allUnreal.Select(e2 => new UnityEntry(e2.Name, e2.Status, e2.Upgrades, e2.Comments)).ToList(), opts)
-                : JsonSerializer.Serialize(_allUnreal.ToList(), opts);
+            newContent = SerializeEngineDb(opts);
         }
         else
             newContent = JsonSerializer.Serialize(_allMods.ToList(), opts);
@@ -378,6 +413,26 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 "File Not Found", MessageBoxButton.OK, MessageBoxImage.Warning);
     }
 
+    private void OpenSource_Click(object sender, RoutedEventArgs e)
+    {
+        if (_isDirty && !ConfirmDiscard()) return;
+        _activeDb = DbType.Source;
+        var local = DbSyncService.LocalCachePath(DbType.Source);
+
+        // The Source DB is new: start an empty one locally; the first Push creates it in rhi-repo
+        if (!File.Exists(local))
+        {
+            try { File.WriteAllText(local, "[]"); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                MessageBox.Show($"Couldn't create {Path.GetFileName(local)}:\n{ex.Message}",
+                    "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+        }
+        LoadFile(local, DbType.Source);
+    }
+
     private void BackToSelector_Click(object sender, RoutedEventArgs e)
     {
         if (_isDirty && !ConfirmDiscard()) return;
@@ -412,6 +467,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         DbType db;
         if (fn.Contains("unity", StringComparison.OrdinalIgnoreCase))
             db = DbType.Unity;
+        else if (fn.Contains("source", StringComparison.OrdinalIgnoreCase))
+            db = DbType.Source;
         else if (fn.Contains("unreal", StringComparison.OrdinalIgnoreCase))
             db = DbType.Unreal;
         else
@@ -428,7 +485,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             _activeDb = db;
             _fileBaselineContent = json; // snapshot for push diff
 
-            if (db == DbType.Unreal || db == DbType.Unity)
+            if (db == DbType.Unreal || db == DbType.Unity || db == DbType.Source)
             {
                 var entries = JsonSerializer.Deserialize<List<UnrealEntry>>(json,
                     new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
@@ -459,12 +516,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             NamedModsFields.Visibility = _isUnrealMode ? Visibility.Collapsed : Visibility.Visible;
             UnrealFields.Visibility    = _isUnrealMode ? Visibility.Visible   : Visibility.Collapsed;
             EditorTitle.Text = db == DbType.Unity ? "Unity Game Details"
+                : db == DbType.Source ? "Source Game Details"
                 : _isUnrealMode ? "Unreal Game Details"
                 : "Game Details";
 
-            // Hide Method field for Unity — it has no Method
-            UMethodLabel.Visibility = db == DbType.Unity ? Visibility.Collapsed : Visibility.Visible;
-            UMethodCombo.Visibility  = db == DbType.Unity ? Visibility.Collapsed : Visibility.Visible;
+            // Method is Unreal-only; Upgrades are Unreal/Unity; Bitness is Source-only
+            bool showMethod = db == DbType.Unreal;
+            bool isSource   = db == DbType.Source;
+            UMethodLabel.Visibility    = showMethod ? Visibility.Visible : Visibility.Collapsed;
+            UMethodCombo.Visibility    = showMethod ? Visibility.Visible : Visibility.Collapsed;
+            UpgradesSection.Visibility = isSource ? Visibility.Collapsed : Visibility.Visible;
+            UBitnessLabel.Visibility   = isSource ? Visibility.Visible : Visibility.Collapsed;
+            UBitnessCombo.Visibility   = isSource ? Visibility.Visible : Visibility.Collapsed;
 
             _currentFilePath = path;
             _isDirty         = false;
@@ -526,12 +589,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             string json;
             if (_isUnrealMode)
             {
-                json = JsonSerializer.Serialize(_allUnreal.ToList(), opts);
-                // Unity DB: serialize without the Method field using a dedicated model
-                if (_activeDb == DbType.Unity)
-                    json = JsonSerializer.Serialize(
-                        _allUnreal.Select(e => new UnityEntry(e.Name, e.Status, e.Upgrades, e.Comments)).ToList(),
-                        opts);
+                json = SerializeEngineDb(opts);
             }
             else
                 json = JsonSerializer.Serialize(_allMods.ToList(), opts);
@@ -664,8 +722,23 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         // Upgrades
         BuildUpgradeRows(entry.ParseUpgrades());
 
+        SelectBitness(entry.Bitness);
+
         UCommentsBox.Text = entry.Comments ?? "";
         StatusLabel.Text  = "";
+    }
+
+    private void SelectBitness(string? bitness)
+    {
+        foreach (ComboBoxItem item in UBitnessCombo.Items)
+        {
+            if (string.Equals(item.Tag as string, bitness ?? "", StringComparison.OrdinalIgnoreCase))
+            {
+                UBitnessCombo.SelectedItem = item;
+                return;
+            }
+        }
+        UBitnessCombo.SelectedIndex = 0;
     }
 
     private void ClearEditor()
@@ -685,6 +758,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         UStatusCombo.SelectedIndex  = 0;
         UMethodCombo.SelectedIndex  = 0;
         UpgradesPanel.Children.Clear();
+        UBitnessCombo.SelectedIndex = 0;
         UCommentsBox.Text = "";
         StatusLabel.Text  = "";
     }
@@ -752,6 +826,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         // Upgrades: collect rows
         entry.Upgrades = CollectUpgrades();
+
+        if (_activeDb == DbType.Source)
+        {
+            var tag = (UBitnessCombo.SelectedItem as ComboBoxItem)?.Tag as string;
+            entry.Bitness  = string.IsNullOrEmpty(tag) ? null : tag;
+            entry.Method   = null;
+            entry.Upgrades = null;
+        }
 
         entry.Comments = NullIfEmpty(UCommentsBox.Text);
 
@@ -939,6 +1021,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (_isUnrealMode && _activeDb == DbType.Unity)
         {
             await WikiCheckUnityAsync();
+            return;
+        }
+        if (_isUnrealMode && _activeDb == DbType.Source)
+        {
+            await WikiCheckSourceAsync();
             return;
         }
         if (_isUnrealMode)
@@ -1147,5 +1234,74 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _isDirty = true;
         UpdateStatusBar();
         StatusBar.Text = $"Added {review.AcceptedEntries.Count} Unity game(s) from wiki. Save to persist.";
+    }
+
+    // ── Wiki check — Source ───────────────────────────────────────────────────
+
+    private async Task WikiCheckSourceAsync()
+    {
+        WikiCheckBtn.IsEnabled = false;
+        StatusBar.Text = "Fetching RenoDX wiki (Source Engine section)…";
+
+        List<WikiSourceEntry> wikiEntries;
+        try
+        {
+            wikiEntries = await WikiSourceScrapeService.FetchSourceAllAsync(_githubToken);
+        }
+        catch (Exception ex)
+        {
+            StatusBar.Text = $"Wiki fetch failed: {ex.Message}";
+            MessageBox.Show($"Failed to fetch the wiki:\n\n{ex.Message}",
+                "Wiki Fetch Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+        finally
+        {
+            WikiCheckBtn.IsEnabled = CanCheckWiki;
+        }
+
+        var inDb = new HashSet<string>(
+            _allUnreal.Select(u => NormaliseModName(u.Name)),
+            StringComparer.Ordinal);
+
+        var newEntries = wikiEntries
+            .Where(w => !inDb.Contains(NormaliseModName(w.Name)))
+            .OrderBy(w => w.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (newEntries.Count == 0)
+        {
+            StatusBar.Text = $"Wiki check complete — no new Source games found ({wikiEntries.Count} checked).";
+            MessageBox.Show(
+                $"All {wikiEntries.Count} wiki entries are already in the DB.\n\nNothing to review.",
+                "Up to Date", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        // Source rows are simple (name, status, bitness, comments), so list them and add in one go;
+        // anything that needs fixing can be edited in the normal editor afterwards.
+        static string Bits(string? b) => b switch { "32" => "32-bit", "64" => "64-bit", "both" => "32+64-bit", _ => "bitness unknown" };
+        var list = string.Join("\n", newEntries.Select(w => $"• {w.Name}  [{w.Status}, {Bits(w.Bitness)}]"));
+        var answer = MessageBox.Show(
+            $"Found {newEntries.Count} new Source game(s) on the wiki:\n\n{list}\n\nAdd them all? You can edit or delete any of them afterwards.",
+            "New Source Games", MessageBoxButton.YesNo, MessageBoxImage.Question);
+        if (answer != MessageBoxResult.Yes)
+        {
+            StatusBar.Text = "Wiki check closed — no entries added.";
+            return;
+        }
+
+        foreach (var w in newEntries)
+            InsertUnrealAlpha(new UnrealEntry
+            {
+                Name     = w.Name,
+                Status   = w.Status,
+                Bitness  = w.Bitness,
+                Comments = w.Comments,
+            });
+
+        _isDirty = true;
+        UpdateStatusBar();
+        StatusBar.Text = $"Added {newEntries.Count} Source game(s) from wiki. Save to persist.";
     }
 }

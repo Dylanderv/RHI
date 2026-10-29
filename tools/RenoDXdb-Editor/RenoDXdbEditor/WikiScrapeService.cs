@@ -293,8 +293,9 @@ public static class WikiUeExtendedScrapeService
         int ueLegacyPos = FindHeadingPosAfter(html, ueExtPos + 1, @"Unreal\s+Engine(?!\s+Extended)");
         int unityPos    = FindHeadingPosAfter(html, ueExtPos + 1, @"Unity\s+Engine");
         int depPos      = FindHeadingPosAfter(html, ueExtPos + 1, @"deprecated");
+        int otherPos    = FindHeadingPosAfter(html, ueExtPos + 1, @"\bEngine\b|Related\s+Mods");
 
-        var candidates = new[] { ueLegacyPos, unityPos, depPos }.Where(p => p > ueExtPos).ToArray();
+        var candidates = new[] { ueLegacyPos, unityPos, depPos, otherPos }.Where(p => p > ueExtPos).ToArray();
         int endPos = candidates.Length > 0 ? candidates.Min() : -1;
 
         var entries = new List<WikiUeExtEntry>();
@@ -491,8 +492,8 @@ public static class WikiUnityScrapeService
         int unityPos = FindHeadingPos(html, @"Unity\s+Engine");
         if (unityPos < 0) return new();
 
-        // End at the next heading after unityPos
-        int endPos = FindHeadingPosAfter(html, unityPos + 1, @"Related\s+Mods|Deprecated");
+        // End at the next section: another engine table (e.g. "Source Engine"), Related Mods or Deprecated
+        int endPos = FindHeadingPosAfter(html, unityPos + 1, @"\bEngine\b|Related\s+Mods|Deprecated");
         if (endPos < 0) endPos = html.Length;
 
         var slice = html.Substring(unityPos, endPos - unityPos);
@@ -640,6 +641,108 @@ public static class WikiUnityScrapeService
         var s = Regex.Replace(html, @"<br\s*/?>", "\n", RegexOptions.IgnoreCase);
         s = Regex.Replace(s, @"<[^>]+>", "");
         s = System.Web.HttpUtility.HtmlDecode(s);
+        return s.Trim();
+    }
+
+    private static string? NullIfEmpty(string? s)
+        => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+}
+/// <summary>A Source Engine game scraped from the wiki: Name / Status / Bitness / Comments.</summary>
+public record WikiSourceEntry(string Name, string Status, string? Bitness, string? Comments, string? RawNotes);
+
+/// <summary>
+/// Scrapes the "Source Engine" table. Every game there uses the shared
+/// renodx-sourceengine addon; the Notes column starts with the bitness
+/// ("32-bit", "64-bit", "Both 32 AND 64-bit") followed by optional remarks.
+/// </summary>
+public static class WikiSourceScrapeService
+{
+    private const string WikiUrl = "https://github.com/clshortfuse/renodx/wiki/Mods";
+    private static readonly HttpClient _http = new();
+
+    public static async Task<List<WikiSourceEntry>> FetchSourceAllAsync(string? githubToken = null)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Get, WikiUrl);
+        req.Headers.UserAgent.ParseAdd("RenoDXdb-Editor/2.0");
+        if (!string.IsNullOrEmpty(githubToken))
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", githubToken);
+        var resp = await _http.SendAsync(req);
+        resp.EnsureSuccessStatusCode();
+        var html = await resp.Content.ReadAsStringAsync();
+        return ParseSource(html);
+    }
+
+    private static List<WikiSourceEntry> ParseSource(string html)
+    {
+        int startPos = FindHeadingPosAfter(html, -1, @"Source\s+Engine");
+        if (startPos < 0) return new();
+
+        int endPos = FindHeadingPosAfter(html, startPos + 1, @"\bEngine\b|Related\s+Mods|Deprecated");
+        if (endPos < 0) endPos = html.Length;
+
+        var slice   = html.Substring(startPos, endPos - startPos);
+        var entries = new List<WikiSourceEntry>();
+
+        foreach (Match row in Regex.Matches(slice, @"(?s)<tr[^>]*>(.*?)</tr>", RegexOptions.IgnoreCase))
+        {
+            var cells = Regex.Matches(row.Groups[1].Value, @"(?s)<td[^>]*>(.*?)</td>", RegexOptions.IgnoreCase);
+            if (cells.Count < 2) continue;   // header row uses <th>
+
+            string name = Strip(cells[0].Groups[1].Value);
+            if (string.IsNullOrWhiteSpace(name)) continue;
+
+            string status = Strip(cells[1].Groups[1].Value).Contains("🚧") ? "WIP" : "Done";
+            string? notes = cells.Count >= 3 ? NullIfEmpty(Strip(cells[2].Groups[1].Value)) : null;
+
+            var (bitness, comments) = ParseNotes(notes);
+            entries.Add(new WikiSourceEntry(name, status, bitness, comments, notes));
+        }
+        return entries;
+    }
+
+    /// <summary>
+    /// Splits the Notes cell into a bitness value ("32" | "64" | "both" | null)
+    /// and the remaining comment text. The bitness is read from the first sentence.
+    /// </summary>
+    public static (string? Bitness, string? Comments) ParseNotes(string? notes)
+    {
+        if (string.IsNullOrWhiteSpace(notes)) return (null, null);
+
+        int dot = notes.IndexOf('.');
+        string first = dot >= 0 ? notes[..dot] : notes;
+        string rest  = dot >= 0 ? notes[(dot + 1)..] : "";
+
+        bool has32 = Regex.IsMatch(first, @"\b32\b|32-bit", RegexOptions.IgnoreCase);
+        bool has64 = Regex.IsMatch(first, @"\b64\b|64-bit", RegexOptions.IgnoreCase);
+        string? bitness = (has32 && has64) || Regex.IsMatch(first, @"\bboth\b", RegexOptions.IgnoreCase) ? "both"
+                        : has64 ? "64"
+                        : has32 ? "32"
+                        : null;
+
+        // Only drop the first sentence when it is just the bitness statement
+        bool firstIsBitnessOnly = bitness != null &&
+            Regex.IsMatch(first.Trim(), @"^(both\s+)?(32|64)(-bit)?(\s*(and|&|/)\s*(32|64))?(-bit)?$", RegexOptions.IgnoreCase);
+        string? comments = firstIsBitnessOnly ? NullIfEmpty(rest) : notes.Trim();
+        return (bitness, comments);
+    }
+
+    private static int FindHeadingPosAfter(string html, int afterPos, string pattern)
+    {
+        foreach (Match m in Regex.Matches(html, @"<h[1-6][^>]*>.*?</h[1-6]>",
+                     RegexOptions.IgnoreCase | RegexOptions.Singleline))
+        {
+            if (m.Index <= afterPos) continue;
+            if (Regex.IsMatch(Strip(m.Value), pattern, RegexOptions.IgnoreCase))
+                return m.Index;
+        }
+        return -1;
+    }
+
+    private static string Strip(string html)
+    {
+        var s = Regex.Replace(html, @"<br\s*/?>", "\n", RegexOptions.IgnoreCase);
+        s = Regex.Replace(s, @"<[^>]+>", "");
+        s = HttpUtility.HtmlDecode(s);
         return s.Trim();
     }
 
