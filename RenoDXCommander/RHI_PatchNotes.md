@@ -100,6 +100,7 @@ To connect: open **Settings → GitHub API** and click **Sign in with GitHub**. 
 - Fixed Metro 2033 Redux not matching its NVIDIA driver profile (Metro Redux).
 - Added engine version for DAEMON X MACHINA (Unreal Engine 4.20.3).
 - Fixed Portal installing mods to the wrong folder. They now go into the game's `bin` folder.
+- Added engine version for Phantom Blade Zero (Unreal Engine 5.7.4).
 
 ---
 
