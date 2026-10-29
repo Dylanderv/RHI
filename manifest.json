@@ -257,7 +257,8 @@
     "METAL GEAR SOLID 4: Guns of the Patriots - Master Collection Version": "MGS4",
     "METAL GEAR SOLID: Peace Walker - Master Collection Version": "mgspw",
     "The Witcher 3: Wild Hunt - Complete Edition": "bin\\x64_dx12",
-    "Outlast": "Binaries\\Win64"
+    "Outlast": "Binaries\\Win64",
+    "Portal": "bin"
   },
   "splitGames": {
     "Diablo": [
