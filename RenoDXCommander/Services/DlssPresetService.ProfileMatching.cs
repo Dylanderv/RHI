@@ -257,8 +257,24 @@ public partial class DlssPresetService
         if (_profileLookupCache.TryGetValue(gameName, out var cached))
             return cached;
 
-        // Check the persistent across-session name cache
+        // A manifest profile override wins over the persistent cache, so overrides added
+        // after a game was first matched (and cached to the wrong profile) still take effect.
         EnsurePersistentProfileCacheLoaded();
+        if (_profileNameOverrides != null
+            && _profileNameOverrides.TryGetValue(gameName, out var overrideName)
+            && _cachedProfiles.TryGetValue(overrideName, out var overrideProfile))
+        {
+            if (!string.Equals(_persistentProfileNameCache!.GetValueOrDefault(gameName), overrideProfile.Name, StringComparison.Ordinal))
+            {
+                CrashReporter.Log($"[DlssPresetService.FindProfile] Override matched: '{gameName}' → profile '{overrideName}' (was '{_persistentProfileNameCache.GetValueOrDefault(gameName) ?? "(none)"}')");
+                _persistentProfileNameCache[gameName] = overrideProfile.Name;
+                SavePersistentProfileCache();
+            }
+            _profileLookupCache[gameName] = overrideProfile;
+            return overrideProfile;
+        }
+
+        // Check the persistent across-session name cache
         if (_persistentProfileNameCache!.TryGetValue(gameName, out var cachedProfileName))
         {
             // null = confirmed miss (no profile exists for this game)

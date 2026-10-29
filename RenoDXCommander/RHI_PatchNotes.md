@@ -4,7 +4,7 @@
 
 To connect: open **Settings → GitHub API** and click **Sign in with GitHub**. Takes about 30 seconds. Or paste a Personal Access Token (PAT) — no scopes needed, just generate one at [github.com/settings/tokens](https://github.com/settings/tokens) and paste it in.
 
-## v2.8.8 Beta
+## v2.8.8 Beta 2
 
 ### Changes
 
@@ -14,6 +14,9 @@ To connect: open **Settings → GitHub API** and click **Sign in with GitHub**. 
 - "Available HDR Mods" is now "Available Mods" and also lists Ultra+ mods, in a new Ultra+ column. The Download column is gone: click any tick to open that mod's page. The top of the window now shows how many RenoDX, Luma and Ultra+ mods are available. Type RenoDX, Luma or Ultra+ in the search box to show only games with that mod (add a game name after it to narrow it further, e.g. "luma dead").
 
 ### Bug Fixes
+
+**NVIDIA profile**
+- Fixed DLSS presets and other driver settings being written to the wrong NVIDIA profile for games that RHI had matched before a profile fix was added for them (for example Metro 2033 Redux going to the Metro: Last Light Redux profile). Profile fixes now apply straight away, with no Full Refresh needed.
 
 **Shaders**
 - Fixed RHI deleting and re-copying the shaders in every ReShade game's `reshade-shaders` folder on each launch and Refresh, even when nothing had changed. Only new or changed shaders are now copied and only removed ones deleted, so games that are running keep their shaders.

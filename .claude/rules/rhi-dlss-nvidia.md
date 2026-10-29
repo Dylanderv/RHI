@@ -174,4 +174,4 @@ paths:
 
 ## profileNameOverrides
 - Manifest field forces `FindProfile` to use specific NVIDIA profile name.
-- Checked FIRST in `FindProfileUncached`, before all matching passes.
+- Checked FIRST in `FindProfile`, before the persistent `nvidia_profile_cache.json` (and again in `FindProfileUncached`). Previously the cache won, so an override added after a game was first matched was ignored until Full Refresh (Metro 2033 Redux stuck on "Metro: Last Light Redux" via shared `metro.exe`).
