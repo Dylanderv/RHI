@@ -59,6 +59,7 @@ To connect: open **Settings → GitHub API** and click **Sign in with GitHub**. 
 
 **NR Cost Scaler / DLSS FG 20/30**
 - Fixed updates to NR Cost Scaler and DLSS FG for RTX 20/30 not being copied into game folders when found at startup.
+- Fixed 20/30 FG Unlock installing only the proxy DLL and INI, leaving out the `dlssg_sm86` folder that version 0.4.0 and newer need (frame generation stayed greyed out in games). RHI now installs the complete release package and repairs existing installs automatically.
 
 **Automatic Updates**
 - Fixed Automatic Updates repeating the same update work once for every game that had an update, and reinstalling ReShade into every game rather than just the outdated ones.

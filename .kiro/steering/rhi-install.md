@@ -105,6 +105,13 @@ fileMatchPattern: "*Install*,*Update*,*Orchestration*"
 - Excluded from `AddonFileWatcher` and "existing addon" mod replace check
 - Engine badge toggle OFF must uninstall DOF Fix
 
+### 20/30 FG Unlock (dlssg_for_sm86)
+- Since 0.4.0 a release is the proxy DLL + `dlssg_sm86.ini` + the whole `dlssg_sm86\` folder (backend, kernels, runtime, optional SR/XeSS packs). The proxy alone does nothing.
+- `Dlssg20_30Service` stages the complete release zip (latest GitHub release asset `dlssg-release-<tag>-x64.zip`), not the raw `version.dll` / INI from `main`.
+- Install/Update/Uninstall must copy/delete the `dlssg_sm86\` folder too. `IsOutdatedIn` repairs installs that only got the proxy and INI.
+- `alternatives\` holds the alternate proxy binaries; use the matching file instead of renaming `version.dll`.
+- 0.4.x factory INIs have no `[Compatibility]` section: `ApplyRouterToIni` must create it when pinning Router.
+
 ### Global Addon Exclusion from Mod Detection
 - Addons that start with `renodx-` but are NOT game-specific mods must be excluded from `ScanForInstalledAddon`:
   - `renodx-devkit` (development tools)
